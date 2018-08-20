@@ -63,8 +63,9 @@ leg_names = [str(lums[0])+r" L$_\odot$ (Quiescent)", \
   str(lums[1])+r" L$_\odot$ + ISRF (Outbursting)"]
 #
 cwd = os.getcwd()
-dat_dir = cwd+"/../../dat_"+rcore
-plt_dir = cwd+"/../../plots/"+rcore
+run_dir = cwd + "/../../runs/EC53"
+dat_dir = run_dir + "/dat_" + rcore
+plt_dir = run_dir + "/plots_analysis/" + rcore
 
 if not os.path.isdir(plt_dir):
     os.makedirs(plt_dir)
@@ -76,7 +77,7 @@ linestyle = ["-",":","-",":"]
 #
     # Before data read, store EC 53 photometry data
 #
-f = cwd+"/../../EC53_D15_2876_flux.txt"
+f = run_dir + "/EC53_D15_2876_flux.txt"
 ec53_wav, ec53_fnu, ec53_err = np.loadtxt(f, skiprows=1, unpack=True)
 ec53_fnu *= 0.001 * cs.Jy_cgs * (cs.c_cgs / (ec53_wav*cs.cm_per_micron))
 ec53_err *= 0.001 * cs.Jy_cgs * (cs.c_cgs / (ec53_wav*cs.cm_per_micron))

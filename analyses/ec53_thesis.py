@@ -1,16 +1,17 @@
 '''
 
-alma_proposal.py
+ec53_thesis.py
 
-Routine to check both SED and temperature profiles of two models with
-different protostellar luminosity, with/without ISRF in RT calculation. Also
-compares to RT run with ISRF only. Uses data to then evaluate flux ratio
-at 850 micron.
+Script to generate thesis specific plots on the modeling of EC53. In sequence,
+the ploted data is:
+    - Quiescent models with varying r_core
+    - Quiescent models for best fitting r_core, over varying inclinations
+    - For best fitting r_core, and inclinations, the varying outburst
+        luminosities.
 
-SEREN snapshot DE05...00788... used, which is scaled to EC 53 envelope mass of
-1.84 M_sol (Enoch et al., 2009). Simulation with RT model parameterised by
-protostellar temperature defined (in K) as XXXX in spectrumXXXX.out files.
-Data with ISRF of Andre et al. (2003) denoted by _ISRF tag.
+All models have L_bol, T_bol and ratio of sub-mm L_bol vs. L_bol computed. For
+all bar outbursting case comparison, SED is overplotted with c2d Spitzer,
+Herschel and JCMT data of Dunham+ (2015) and Yoo+ (2017)
 
 Author: Benjamin MacFarlane
 Date: 14/02/2018
@@ -25,6 +26,7 @@ Contact: bmacfarlane@uclan.ac.uk
 #
 # Standard Python modules
 import os
+import shutil
 import numpy as np
 import math
 import random
@@ -37,219 +39,332 @@ import constants as cs
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 #
 #
-restricted = "POST"
-#
 dist = 436.0        # Float: Distance (pc) to source
+best_cavity = 20
+best_inclin = 30         # Int. Designated inclination ("best" fit)
+best_rcore = "1e4"       # Str. Designated core radius ("best" fit)
 #
+bolometrics = False     # Bool.: Are bolometric propertes of SEDs computed?
 plt_form = "png"    # Str.: Format of output plots ["png","eps"]
 #
-isrf = False
-#
-phase = ["Quiescent","Outbursting"]
 #
 #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 		# # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
-
-l_tags = ["6L","20L"]
-restricted = ["POST"]
-isrf_ext = ["_0ISRF","_ISRF"]
-
-wav = [ [ [ [] for i in range(len(isrf_ext)) ] for i in range(len(restricted)) ] \
-  for i in range(2) ]
-flam = [ [ [ [] for i in range(len(isrf_ext)) ] for i in range(len(restricted)) ] \
-  for i in range(2) ]
-
-for i in range(len(restricted)):
-    for j in range(len(isrf_ext)):
+cwd = os.getcwd()
+run_dir = cwd + "/../../runs/EC53"
+plt_dir = run_dir + "/plots_analysis"
 #
-        l_star = []
-        for t in range(len(temps)):
-            l = 4.0 * math.pi * (cs.m_per_rsol)**2.0 * cs.sigma_sb * \
-              float(temps[t])**4.0
-            lsol = l / cs.Lsol_SI
-            l_star.append( np.round( lsol, 2) )
-
-        names = [str(temps[0])+isrf_ext[j], str(temps[1])+isrf_ext[j]]
+n = int(1e5)
+def Trapezoidal(g, a, b, n):
+    h = (b - a) / float(n)
+    s = 0.5 * (g(a) + g(b))
+    for i in range(1,n,1):
+        s = s + g(a + i*h)
+    return h*s
 #
-        leg_names = [r"$L_*$ = "+str(l_star[0])+r" $L_\odot$ (Quiescent)", \
-          r"$L_*$ = "+str(l_star[1])+r" $L_\odot$ (Outbursting)" ]
+    # Before data read, store EC 53 photometry data
 #
-        cwd = os.getcwd()
-        run_dir = cwd+"/../../runs/EC53"
-        if (restricted[i] == "POST"):
-            dat_dir = run_dir + "/POST/dat"
-            plt_dir = run_dir + "/plots_analysis/POST"
-        elif (restricted[i] == "POST_1000"):
-            dat_dir = run_dir + "/POST_1000/dat"
-            plt_dir = run_dir + "/plots_analysis/POST_1000"
-        if not os.path.isdir(plt_dir):
-            os.system("mkdir {0}".format(plt_dir))
-#
-### ------------------------------------------------------------------------ ###
-
-#
-    # Read in SED data
-#
-        for t in range(len(temps)):
-            fsed = dat_dir + "/spectrum"+names[t]+"_0i.out"
-#
-            f = open(fsed,"r")
-            for lines in range(3):
-                header = f.readline()
-            for lines in f:
-                lines = lines.strip() ; columns = lines.split()
-                wav[t][i][j].append(float(columns[0]))
-                flam[t][i][j].append( float(columns[1]) * \
-                  ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / \
-                  dist**(2.0))
-            f.close()
-
-### ------------------------------------------------------------------------ ###
-
-
-#   Singular cut method analysis:
-#
-    # Now plot SED. Zoom into SED in region of interest, using second panel
-#
-# SED
-#
-        color = ["b","r","g","k","c"]
-#
-        fig = plt.figure(1)
-        ax1 = plt.subplot(111)
-        for t in range(len(temps)):
-            plt.plot( wav[t][i][j], flam[t][i][j], label = leg_names[t], \
-              color=color[t] )
-        ymax = max(flam[1][0][0])*10. ; ymin = 2.0e-19
-        plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
-        plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
-        ax1.set_xlim(1.e-0,10000.)
-        plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg/s/cm$^2$)", \
-          fontsize = 18, labelpad=0.5)
-        ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-        plt.axvline(x=850.0, linestyle="dashed", color="k")
-        plt.axvline(x=450.0, linestyle="dashed", color ="k")
-        plt.legend(loc = "lower center", fontsize=12, scatterpoints = 20)
-        plt.tight_layout()
-        plt.savefig(plt_dir + "/SED"+str(isrf_ext[j])+"."+plt_form, \
-          format = plt_form)
-        plt.clf()
-#
-        fig = plt.figure(1)
-        ax1 = plt.subplot(111)
-        for t in range(len(temps)):
-            plt.plot( wav[t][i][j], flam[t][i][j], label = leg_names[t], \
-              color=color[t] )
-        ymax = 1.00e-10 ; ymin = 1.00e-13
-        plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
-        plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
-        ax1.set_xlim(300.,1200.)
-        plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg/s/cm$^2$)", \
-          fontsize = 18, labelpad=0.5)
-        ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-        plt.axvline(x=850.0, linestyle="dashed", color="k")
-        plt.axvline(x=450.0, linestyle="dashed", color ="k")
-        plt.tight_layout()
-        plt.savefig(plt_dir + "/SED_ZOOM"+str(isrf_ext[j])+"."+plt_form, \
-          format = plt_form)
-        plt.clf()
-
-    # Plot all ISRF models for single restriction in both full, and zoom SEDs
-
-    lines = ["-","--",":"]
-    leg_names = ["No ISRF","Andre+ (2003) ISRF", "10x Andre+ (2003) ISRF"]
-
-    fig = plt.figure(1)
-    ax1 = plt.subplot(111)
-
-    for j in range(len(isrf_ext)):
-        for t in range(len(temps)):
-            plt.plot( wav[t][i][j], flam[t][i][j], \
-              label = phase[t] + ": " + leg_names[j], color=color[t], \
-              linestyle = lines[j])
-
-    ymax = max(flam[1][0][0])*10. ; ymin = 2.0e-19
-    plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
-    plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
-    ax1.set_xlim(1.e-0,10000.)
-    plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg/s/cm$^2$)", \
-      fontsize = 18, labelpad=0.5)
-    ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-    plt.axvline(x=850.0, linestyle="dashed", color="k")
-    plt.axvline(x=450.0, linestyle="dashed", color ="k")
-    plt.legend(loc = "lower center", fontsize=10, scatterpoints = 20)
-    plt.tight_layout()
-    plt.savefig(plt_dir + "/SED_comp."+plt_form, format = plt_form)
-    plt.clf()
-
-    fig = plt.figure(1)
-    ax1 = plt.subplot(111)
-
-    for j in range(len(isrf_ext)):
-        for t in range(len(temps)):
-            plt.plot( wav[t][i][j], flam[t][i][j], \
-              label = phase[t] + ": " + leg_names[j], color=color[t], \
-              linestyle = lines[j])
-    ymax = 1.00e-10 ; ymin = 1.00e-13
-    plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
-    plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
-    ax1.set_xlim(300.,1200.)
-    plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg/s/cm$^2$)", \
-      fontsize = 18, labelpad=0.5)
-    ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-    plt.axvline(x=850.0, linestyle="dashed", color="k")
-    plt.axvline(x=450.0, linestyle="dashed", color ="k")
-    plt.tight_layout()
-    plt.savefig( plt_dir + "/SED_ZOOM_comp."+plt_form, \
-      format = plt_form)
-    plt.clf()
-
+f = run_dir + "/EC53_D15_2876_flux.txt"
+ec53_wav, ec53_fnu, ec53_err = np.loadtxt(f, skiprows=1, unpack=True)
+ec53_fnu *= 0.001 * cs.Jy_cgs * (cs.c_cgs / (ec53_wav*cs.cm_per_micron))
+ec53_err *= 0.001 * cs.Jy_cgs * (cs.c_cgs / (ec53_wav*cs.cm_per_micron))
 
 
 ### ------------------------------------------------------------------------ ###
 
 
-#   Singular cut method analysis:
+print("\nComparing SEDs for R_CORE = "+best_rcore+", with varying inclinations")
+print("and cavity opening angles\n")
 #
-#   450 and 850 micron flux ratio calculation (lambda F lambda)
+wav = [[] for i in range(4)]
+flam = [[] for i in range(4)]
+lam_flam = [[] for i in range(4)]
 #
-L_ratio = round((float(temps[1])/float(temps[0]))**(4.0),3)
-print("Ratio of protostellar luminosities, assuming constant "+ \
-  "radius is: {0}\n".format(L_ratio) )
+cwd = os.getcwd()
+dat_dir = run_dir + "/dat_" + best_rcore + "_cavity" + str(best_cavity)
 #
-    # Single beam restriction
-for i in range(len(restricted)):
-    for j in range(len(isrf_ext)):
+inclin = [0,30,60,90]
 #
-        print("\nLAMBDA F_LAMBDA RATIOS FOR "+ \
-          "{0} CUT, \"{1}\" ISRF RUN OF EC 53 MODELLING\n".format(restricted[i], \
-            isrf_ext[j]) )
+leg_names = ["i = 0 deg.", \
+  "i = 30 deg.", \
+  "i = 60 deg.", \
+  "i = 90 deg."]
+color = ["r","g","b","k"]
+linestyle = ["-","-","-","-"]
+linewidth = [1,1,1,1]
 
-        flam_int1 = interp1d(wav[0][i][j], flam[0][i][j])
-        flam_int2 = interp1d(wav[1][i][j], flam[1][i][j])
+for i in range(4):
 
-        ratio450 = round( ( flam_int2(450) / flam_int1(450) ), 3)
-        print("Ratio 450 micron flux is: {0}\n".format(ratio450) )
-        ratio850 = round( ( flam_int2(850) / flam_int1(850) ), 3)
-        print("Ratio 850 micron flux is: {0}\n".format(ratio850) )
-#
-    # Cross comparison on flux ratios between beam sizes
-#
-print("\n\n\n")
-for j in range(len(isrf_ext)):
-    for t in range(len(temps)):
-#
-        print("LAMBDA F_LAMBDA RATIOS FOR "+ \
-          "{0} PHASE, \"{1}\" ISRF RUN OF EC 53 MODELLING\n".format(phase[t], \
-          isrf_ext[j]))
+    fsed = dat_dir+"/spectrum6L_ISRF_"+str(inclin[i])+"i.out"
 
-        flam_int1 = interp1d(wav[t][1][j], flam[t][1][j])
-        flam_int2 = interp1d(wav[t][0][j], flam[t][0][j])
+    f = open(fsed,"r")
+    for j in range(0, 3):
+        header = f.readline()
+    for lines in f:
+        lines = lines.strip() ; columns = lines.split()
+        wav[i].append(float(columns[0]))
+        flam[i].append(float(columns[1]) * \
+           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
+        lam_flam[i].append( float(columns[1]) * \
+          ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / dist**(2.0))
+    f.close()
 
-        ratio450 = round( ( flam_int2(450) / flam_int1(450) ), 3)
-        print("Ratio 450 micron flux is: {0}\n".format(ratio450) )
-        ratio850 = round( ( flam_int2(850) / flam_int1(850) ), 3)
-        print("Ratio 850 micron flux is: {0}\n".format(ratio850) )
+    if bolometrics:
+
+        flam_int = np.array(flam[i])
+        lam_flam_int = np.array(lam_flam[i]) * dist**2.0
+        wav_int = np.array(wav[i]) * cs.cm_per_micron
+
+        # Model bolometric luminosity
+
+        flux_int = interp1d(wav_int, flam_int, kind="cubic")
+        a = min(wav_int) ; b = max(wav_int)
+        def g(lam):
+            return flux_int(lam)
+        result1 = Trapezoidal(g, a, b, n)
+        L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs
+
+        # Model sub-mm luminosity
+
+        a = 350.e-4 ; b = max(wav_int)
+        def g(lam):
+            return flux_int(lam)
+        result2 = Trapezoidal(g, a, b, n)
+        L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result2) / cs.Lsol_cgs
+
+        energy_int = interp1d(wav_int, lam_flam_int, kind = "cubic")
+        def g(lam):
+            return energy_int(lam)
+        result3 = Trapezoidal(g, a, b, n)
+
+        T_bol = 1.25e-11 * ( cs.c_cgs / (result3 / result1) )
+
+        print("\nFor theta = {0} deg., {1} model: \n".format(best_cavity, \
+         leg_names[i]))
+
+        ratio_submm_bol = (L_submm / L_bol) * 100.0
+        print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
+        print("Sub-mm luminosity is: {0} L_sol\n".format(L_submm))
+        print("Ratio of Bolometric and sub-mm "+ \
+          "luminosity is {0} %\n".format(ratio_submm_bol) )
+        print("Bolometric temperature is: {0} K\n".format(T_bol))
+
+fig = plt.figure(1)
+ax1 = plt.subplot(111)
+for i in range(len(inclin)):
+    plt.plot( wav[i], lam_flam[i], label = leg_names[i], color=color[i], \
+       linestyle = linestyle[i], linewidth = linewidth[i])
+plt.errorbar(ec53_wav, ec53_fnu, yerr=ec53_err, \
+ fmt='o', mfc='k', ecolor='k', ms=5)
+ymax = max(lam_flam[0])*10. ; ymin = 8.0e-14
+plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
+plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
+ax1.set_xlim(8.e-2,2500.)
+plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
+ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
+plt.legend(loc = "upper left", fontsize=cs.leg_fontsize)
+plt.tight_layout()
+plt.savefig(plt_dir + "/incl_ec53_"+str(best_rcore)+ \
+ "cavity"+str(best_cavity)+"."+plt_form, format = plt_form)
+plt.clf()
+
+### ------------------------------------------------------------------------ ###
+
+print("\nComparing SEDs for radially varying models (0 deg. inclination)\n")
+
+wav = [[] for i in range(3)]
+flam = [[] for i in range(3)]
+lam_flam = [[] for i in range(3)]
+#
+r_core = ["1e4","3e4","5e4"]
+inclin = 0
+#
+leg_names = [r"$R_{CORE} = 10 000$ AU", \
+  r"$R_{CORE} = 30 000$ AU", \
+  r"$R_{CORE} = 50 000$ AU"]
+color = ["r","g","b"]
+linestyle = ["-","-","-"]
+linewidth = [1,1,1]
+
+for i in range(3):
+
+    fsed = run_dir + "/dat_" + r_core[i] + "_cavity"+str(best_cavity)+ \
+     "/spectrum6L_ISRF_"+str(inclin)+"i.out"
+    f = open(fsed,"r")
+    for j in range(0, 3):
+        header = f.readline()
+    for lines in f:
+        lines = lines.strip() ; columns = lines.split()
+        wav[i].append(float(columns[0]))
+        flam[i].append(float(columns[1]) * \
+           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
+        lam_flam[i].append( float(columns[1]) * \
+          ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / dist**(2.0))
+    f.close()
+
+    if bolometrics:
+
+        flam_int = np.array(flam[i])
+        lam_flam_int = np.array(lam_flam[i]) * dist**2.0
+        wav_int = np.array(wav[i]) * cs.cm_per_micron
+
+        # Model bolometric luminosity
+
+        flux_int = interp1d(wav_int, flam_int, kind="cubic")
+        a = min(wav_int) ; b = max(wav_int)
+        def g(lam):
+            return flux_int(lam)
+        result1 = Trapezoidal(g, a, b, n)
+        L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs
+
+        # Model sub-mm luminosity
+
+        a = 350.e-4 ; b = max(wav_int)
+        def g(lam):
+            return flux_int(lam)
+        result2 = Trapezoidal(g, a, b, n)
+        L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result2) / cs.Lsol_cgs
+
+        energy_int = interp1d(wav_int, lam_flam_int, kind = "cubic")
+        def g(lam):
+            return energy_int(lam)
+        result3 = Trapezoidal(g, a, b, n)
+
+        T_bol = 1.25e-11 * ( cs.c_cgs / (result3 / result1) )
+
+        print("\nFor {0} model: \n".format(leg_names[i]))
+        ratio_submm_bol = (L_submm / L_bol) * 100.0
+        print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
+        print("Sub-mm luminosity is: {0} L_sol\n".format(L_submm))
+        print("Ratio of Bolometric and sub-mm "+ \
+          "luminosity is {0} %\n".format(ratio_submm_bol) )
+        print("Bolometric temperature is: {0} K\n".format(T_bol))
+
+fig = plt.figure(1)
+ax1 = plt.subplot(111)
+for i in range(3):
+    plt.plot( wav[i], lam_flam[i], label = leg_names[i], color=color[i], \
+       linestyle = linestyle[i], linewidth = linewidth[i])
+plt.errorbar(ec53_wav, ec53_fnu, yerr=ec53_err, \
+ fmt='o', mfc='k', ecolor='k', ms=5)
+ymax = max(lam_flam[0])*10. ; ymin = 8.0e-14
+plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
+plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
+ax1.set_xlim(8.e-2,2500.)
+plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
+ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
+plt.legend(loc = "upper left", fontsize=cs.leg_fontsize)
+plt.tight_layout()
+plt.savefig(plt_dir + "/rad_ec53_cavity"+str(best_cavity)+"."+plt_form, \
+ format = plt_form)
+plt.clf()
+
+
+### ------------------------------------------------------------------------ ###
+
+print("\nComparing SEDs with varying outburst luminosity, in models where ")
+print("R_CORE  = "+best_rcore+", theta = "+str(best_cavity)+ \
+ "deg., and i = "+str(best_inclin)+"deg.")#
+#
+cwd = os.getcwd()
+dat_dir = run_dir + "/dat_"+best_rcore+"_cavity"+str(best_cavity)
+#
+lums = [10,20,25,30]
+leg_names = [r"$L_{*,q} = 6 $ L$_\odot$", \
+  r"$L_{*,o} = 10 $ L$_\odot$", \
+  r"$L_{*,o} = 20 $ L$_\odot$", \
+  r"$L_{*,o} = 25 $ L$_\odot$", \
+  r"$L_{*,o} = 30 $ L$_\odot$"]
+color = ["k","r","g","b","cyan"]
+linestyle = ["--","-","-","-","-"]
+linewidth = [1,1,1,1,1]
+
+wav = [[] for i in range(len(lums)+1)]
+flam = [[] for i in range(len(lums)+1)]
+lam_flam = [[] for i in range(len(lums)+1)]
+
+for i in range(len(lums)+1):
+
+    if (i == 0):
+        fsed = dat_dir + "/spectrum6L_ISRF_"+str(best_inclin)+"i.out"
+    else:
+        fsed = dat_dir + "/spectrum"+str(lums[i-1])+"L_ISRF_"+ \
+         str(best_inclin)+"i.out"
+
+    f = open(fsed,"r")
+    for j in range(0, 3):
+        header = f.readline()
+    for lines in f:
+        lines = lines.strip() ; columns = lines.split()
+        wav[i].append(float(columns[0]))
+        flam[i].append(float(columns[1]) * \
+           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
+        lam_flam[i].append( float(columns[1]) * \
+          ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / dist**(2.0))
+    f.close()
+
+#
+    if bolometrics:
+
+        flam_int = np.array(flam[i])
+        lam_flam_int = np.array(lam_flam[i]) * dist**2.0
+        wav_int = np.array(wav[i]) * cs.cm_per_micron
+
+        # Model bolometric luminosity
+
+        flux_int = interp1d(wav_int, flam_int, kind="cubic")
+        a = min(wav_int) ; b = max(wav_int)
+        def g(lam):
+            return flux_int(lam)
+        result1 = Trapezoidal(g, a, b, n)
+        L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs
+
+        # Model sub-mm luminosity
+
+        a = 350.e-4 ; b = max(wav_int)
+        def g(lam):
+            return flux_int(lam)
+        result2 = Trapezoidal(g, a, b, n)
+        L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result2) / cs.Lsol_cgs
+
+        energy_int = interp1d(wav_int, lam_flam_int, kind = "cubic")
+        def g(lam):
+            return energy_int(lam)
+        result3 = Trapezoidal(g, a, b, n)
+
+        T_bol = 1.25e-11 * ( cs.c_cgs / (result3 / result1) )
+
+        print("\nFor {0} model: \n".format(leg_names[i]))
+        ratio_submm_bol = (L_submm / L_bol) * 100.0
+        print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
+        print("Sub-mm luminosity is: {0} L_sol\n".format(L_submm))
+        print("Ratio of Bolometric and sub-mm "+ \
+          "luminosity is {0} %\n".format(ratio_submm_bol) )
+        print("Bolometric temperature is: {0} K\n".format(T_bol))
+
+
+flam_int_q = interp1d(wav[0], flam[0])
+for i in range(len(lums)):
+    flam_int_o= interp1d(wav[i+1], flam[i+1])
+    ratio850 = str(round( ( flam_int_o(850) / flam_int_q(850) ), 2))
+    leg_names[i+1] += r" ; F$_{\lambda, o}$ / F$_{\lambda, q}$ = "+ratio850
+
+fig = plt.figure(1)
+ax1 = plt.subplot(111)
+for i in range(len(lums)+1):
+    plt.plot( wav[i], lam_flam[i], label = leg_names[i], color=color[i], \
+       linestyle = linestyle[i], linewidth = linewidth[i])
+ymax = max(lam_flam[3])*10. ; ymin = 8.0e-14
+plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
+plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
+ax1.set_xlim(8.e-2,2500.)
+plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
+ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
+plt.axvline(x=850.0, linestyle="dashed", color="k")
+plt.legend(loc = "upper left", fontsize=cs.leg_fontsize-2)
+plt.tight_layout()
+plt.savefig(plt_dir + "/burst_ec53."+plt_form, format = plt_form)
+plt.clf()

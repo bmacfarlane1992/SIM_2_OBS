@@ -1,6 +1,6 @@
 '''
 
-parameter_sweep.py
+outburst_parameter_sweep.py
 
 Program to evaluate flux levels for varying model component/outburst
 characteristics. All data stored in 1686/ directory (i.e. for E2 outburst), all
@@ -77,10 +77,12 @@ plt_form = "png"        # Str.: Output plot format ["png","eps"]
 		# # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 #
-arch_dir = os.getcwd()+"/../../../.."
-dat_dir_o = os.getcwd()+"/../../1686"
-dat_dir_q = os.getcwd()+"/../../1611"
-plt_dir = os.getcwd()+"/../plots"
+cwd = os.getcwd()
+arch_dir = cwd = "/../.."
+dat_dir_o = arch_dir + "/runs/OUTBURST/1686"
+dat_dir_q = arch_dir + "/runs/OUTBURST/1611"
+plt_dir = arch_dir + "/runs/OUTBURST/plots_analysis"
+
 if not os.path.isdir(plt_dir):
     os.system("mkdir {0}/".format(plt_dir) )
 #

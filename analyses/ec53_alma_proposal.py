@@ -1,6 +1,6 @@
 '''
 
-alma_proposal.py
+ec53_alma_proposal.py
 
 Routine to check both SED and temperature profiles of two models with
 different protostellar luminosity, with/without ISRF in RT calculation. Also
@@ -78,13 +78,13 @@ for i in range(len(restricted)):
           r"$L_*$ = "+str(l_star[1])+r" $L_\odot$ (Outbursting)" ]
 #
         cwd = os.getcwd()
-        run_dir = cwd+"/../.."
+        run_dir = cwd+"/../../runs/EC53"
         if (restricted[i] == "POST"):
             dat_dir = run_dir + "/POST/dat"
-            plt_dir = cwd + "/../plots/POST"
+            plt_dir = run_dir + "/plots_analysis/POST"
         elif (restricted[i] == "POST_1000"):
             dat_dir = run_dir + "/POST_1000/dat"
-            plt_dir = cwd + "/../plots/POST_1000"
+            plt_dir = run_dir + "/plots_analysis/POST_1000"
         if not os.path.isdir(plt_dir):
             os.system("mkdir {0}".format(plt_dir))
 #
