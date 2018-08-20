@@ -12,7 +12,7 @@ Code then generates RADMC-3D ICs, and runs MCRT and RRT to compute/generate
        images, using RRT and radmc3dPy modules)
 
 Author: Benjamin MacFarlane
-Date: 17/07/2018
+Date: 20/08/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -20,6 +20,8 @@ Contact: bmacfarlane@uclan.ac.uk
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 		# # # - - - MODULE IMPORTS - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+# System module imports
 
 import os
 import imp
@@ -30,60 +32,21 @@ import sys
 		# # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
-    # Set up global parameters, and if not loaded into PYTHONPATH, use
-    # constants.py and functins.py from arch_dir/../
-
 arch_dir = os.getcwd()+"/.."
-
-try:
-    imp.find_module("constants")
-    print("\n\n\nconstants.py found!\n")
-except ImportError:
-    if not os.path.isfile(arch_dir+"/../constants.py" ):
-        print("\n\n\nNo constants.py directory found in system, exiting...\n")
-        exit()
-    else:
-        shutil.copy2( arch_dir+"/../constants.py", os.getcwd()  )
-        print("\n\n\nconstants.py file transferred to /src from system\n")
-try:
-    imp.find_module("functions")
-    print("functions.py found!\n")
-except ImportError:
-    if not os.path.isfile(arch_dir+"/../functions.py" ):
-        print("No functions.py directory found in system, exiting...\n")
-        exit()
-    else:
-        shutil.copy2( arch_dir+"/../functions.py", os.getcwd()  )
-        print("functions.py file transferred to /src from system\n")
-
-### ------------------------------------------------------------------------ ###
 
     # Find parameters files for batch SIM_2_OBS analyses in /params/pending, or
     # simply adopt parameters.py in /params. If multiple params used, ensure
     # completed runs are transported to params/done directory
 
-param_dir = os.getcwd()+"/../params/pending"
-params_done_dir = os.getcwd()+"/../params/done"
+param_dir = arch_dir + "/params/pending"
+params_done_dir = arch_dir + "/params/done"
 f_params = [] ; f_ext = []
 if os.path.isdir(param_dir):
     if not (os.path.isdir(params_done_dir)):
         os.makedirs(params_done_dir)
     for root, dirs, files in os.walk(param_dir):
 
-    # If last character of file name a number, sort files
-
-        sorting = True
-        for f in files:
-            try:
-                float(f[-4])
-            except:
-                sorting = False
-        if sorting:
-            files.sort()
-        else:
-            continue
-
-    # Regardless of sorting, append to f_params list
+    # Append to f_params list
 
         for f in files:
             if (f.split(".")[1] == "py"):

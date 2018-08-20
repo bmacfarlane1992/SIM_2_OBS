@@ -16,13 +16,20 @@ import numpy as np
 import os
 from scipy.interpolate import interp1d
 
+    # Append location of constants and functions modules into pythonpath
+    
+import sys
+cwd = os.getcwd()
+sys.path.insert(0,cwd+'/../')
+
 import constants as cs
+import functions as fs
 
 
 # ------------------------------------------------------------------------------
 
 
-arch_dir = os.getcwd()+"/../runs"
+arch_dir = os.getcwd()+"/../../runs"
 
 run_dir = arch_dir+"/ENVELOPE/ENVELOPE_ISRF"
 
@@ -30,15 +37,6 @@ file_read = run_dir+"/dat/spectrumISRF_0i.out"
 
 
 # ------------------------------------------------------------------------------
-
-
-n = int(1e5)
-def Trapezoidal(g, a, b, n):
-    h = (b - a) / float(n)
-    s = 0.5 * (g(a) + g(b))
-    for i in range(1,n,1):
-        s = s + g(a + i*h)
-    return h*s
 
 wavs = [] ; flam = []
 f = open(file_read, "r")
@@ -58,7 +56,7 @@ flux_int = interp1d(wavs, flam, kind="cubic")
 a = min(wavs) ; b = max(wavs)
 def g(lam):
     return flux_int(lam)
-result = Trapezoidal(g, a, b, n)
+result = fs.Trapezoidal(g, a, b, n)
 L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
 
 print("\nBolometric Luminosity is {0} L_sol\n".format(L_bol))
