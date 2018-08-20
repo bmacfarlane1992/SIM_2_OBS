@@ -30,8 +30,11 @@ try:
 except:
     print("radmc3dPy modules not found for image plots...\n")
     plot_image = False
+
 import constants as cs
 from params_run import *
+
+from functions import Trapezoidal
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - MAIN PROGRAM - - - # # #
@@ -246,16 +249,7 @@ def yso_class(nu, fnu, nu_star, fnu_star, t_star, r_star):
 
     # Set trapezium rule for numerical integration
 
-    n = int(1e5)
-
-    def Trapezoidal(g, a, b, n):
-        h = float(b - a) / n
-        s = 0.0
-        s += g(a)/2.0
-        for i in range(1, n):
-            s += g(a + i*h)
-        s += g(b)/2.0
-        return s * h
+    int_sample = int(1e5)
 
     # Protostellar bolometric luminosity
 
@@ -264,7 +258,7 @@ def yso_class(nu, fnu, nu_star, fnu_star, t_star, r_star):
     a = min(nu_star) ; b = max(nu_star)
     def g(lam):
         return flux_int(lam)
-    result = Trapezoidal(g, a, b, n)
+    result = Trapezoidal(g, a, b, int_sample)
     L_star = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
 
     # Model bolometric luminosity
@@ -274,7 +268,7 @@ def yso_class(nu, fnu, nu_star, fnu_star, t_star, r_star):
     a = min(nu) ; b = max(nu)
     def g(lam):
         return flux_int(lam)
-    result = Trapezoidal(g, a, b, n)
+    result = Trapezoidal(g, a, b, int_sample)
     L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
 
     # Model sub-mm luminosity
@@ -282,7 +276,7 @@ def yso_class(nu, fnu, nu_star, fnu_star, t_star, r_star):
     a = min(nu) ; b = cs.c / 350.e-6
     def g(lam):
         return flux_int(lam)
-    result = Trapezoidal(g, a, b, n)
+    result = Trapezoidal(g, a, b, int_sample)
     L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
 
     # Print values to terminal
@@ -300,7 +294,7 @@ def yso_class(nu, fnu, nu_star, fnu_star, t_star, r_star):
     a = min(nu) ; b = max(nu)
     def g(lam):
         return flux_int(lam)
-    result1 = Trapezoidal(g, a, b, n)
+    result1 = Trapezoidal(g, a, b, int_sample)
 
     nu_fnu = []
     for w in range(len(nu)):
@@ -309,7 +303,7 @@ def yso_class(nu, fnu, nu_star, fnu_star, t_star, r_star):
     energy_int = interp1d(nu, nu_fnu, kind = "cubic")
     def g(lam):
         return energy_int(lam)
-    result2 = Trapezoidal(g, a, b, n)
+    result2 = Trapezoidal(g, a, b, int_sample)
 
     T_bol = 1.25e-11 * (result2 / result1)
 

@@ -312,6 +312,8 @@ for files in range(len(f_params)):
 
     # Clean directories of garbage, incuding .pyc, ~, and SPLASH .ascii files
 
+os.remove(arch_dir+"/src/radmc3d.out")
+
 dirs = [arch_dir+"/ics/", arch_dir+"/src/", arch_dir+"/"]
 exts = [".pyc", ".ascii"]
 for d in range(len(dirs)):
