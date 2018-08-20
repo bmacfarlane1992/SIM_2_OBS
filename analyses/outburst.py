@@ -9,7 +9,7 @@ and plot SEDs to display 100 - 10000 micron flux for
 
 
 Author: Benjamin MacFarlane
-Date: 02/07/2018
+Date: 20/08/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -26,10 +26,17 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from scipy.interpolate import interp1d
-# User modules
+
+    # Append location of constants and functions modules into pythonpath
+
+import sys
+sys.path.insert(0,"./../")
+
+    # Import local modules
+
 import constants as cs
-from functions import adjustFigAspect
-#
+import functions as fs
+
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - VARIABLE DEFINITIONS - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -95,11 +102,9 @@ flam_vals = [ [ [ [ [ [0.0] for l in range(len(wavs_compare)) ]
 wavs_s = [ [] for s in range(len(snaps))]
 flam_s = [ [] for s in range(len(snaps))]
 #
-# rloc[SNAP][CUT], to be appended to
-# rloc[SNAP][CUT][rloc] (rloc_xy with equivalent structure)
+# rloc[SNAP][CUT], to be appended to rloc[SNAP][CUT][rloc]
 #
 rloc = [ [ [] for c in range(len(cut)) ] for s in range(len(snaps)) ]
-rloc_xy = [ [ [] for c in range(len(cut)) ] for s in range(len(snaps)) ]
 #
 # temp[SNAP][CUT][ISRF], to be appended to
 # temp[SNAP][CUT][ISRF][rloc]
@@ -134,22 +139,17 @@ for s in range(len(snaps)):
 #
     f_star.close()
 #
-    # Append wavs and flam for protostellar data, normalising as necessary
+    # Read protostellar SED data
 #
     f_psed = arch_dir+"/protostar/spectrum"+str(int(t_star[s]))+".out"
     if not os.path.isfile(f_psed):
         print("Protostellar SED template not found, exiting...")
         exit()
-    f_psed = open(f_psed,"r")
-    for l in range(3):
-        trash = f_psed.readline()
-    for lines in f_psed:
-        lines = lines.strip() ; columns = lines.split()
-        wavs_s[s].append(float(columns[0]))
-        flam_s[s].append( float(columns[1]) * \
-          ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) ) )
-    f_psed.close()
-#
+
+    wavs_s[s], flam_s[s], lam_flam, nu, fnu, nu_fnu = fs.SED_read(f_psed)
+
+    # Normalise if called for..
+
     if sed_norm:
         fnorm = ( (r_star[s] * cs.cm_per_rsol)**2. * cs.sigma_sb_cgs * \
            (t_star[s])**4. ) / (cs.cm_per_pc)**2.
@@ -159,28 +159,25 @@ for s in range(len(snaps)):
         fnorm = dist**2.0
         for l in range(len(flam_s[s])):
             flam_s[s][l] /= fnorm
-#
+
     # Now loop over cut, isrf and inclination regimes, reading in and appending
     # SED data to wavs and flam arrays, and normalising as necessary
-#
+
     for c in range(len(cut)):
-#
+
         f_loc = dat_dir+"/"+snaps[s]+"/"+cut[c]+"/dat/loc_grid.dat"
-        f_loc = open(f_loc,"r")
-        for lines in f_loc:
-            lines = lines.strip() ; columns = lines.split()
-            rloc[s][c].append(float(columns[3]) * cs.au_per_cm)
-            rloc_xy[s][c].append( np.sqrt(float(columns[0])**2.0 + \
-              float(columns[1])**2.0) )
-        f_loc.close()
-#
+
+        xloc, yloc, zloc, rloc[s][c], xwid = \
+            np.loadtxt(dat_dir+"/loc_grid.dat",unpack=True)
+        rloc[s][c] *= cs.au_per_cm
+
         for r in range(len(isrf)):
-#
+
             if (isrf[r] == "N"):
                 isrf_ext = ""
             elif (isrf[r] == "Y"):
                 isrf_ext = "_ISRF"
-#
+
             f_temp = dat_dir+"/"+snaps[s]+"/"+cut[c]+ \
               "/dat/dust_temperature"+str(int(t_star[s]))+isrf_ext+".dat"
             f_temp = open(f_temp,"r")
@@ -190,35 +187,20 @@ for s in range(len(snaps)):
                 lines = lines.strip() ; columns = lines.split()
                 temp[s][c][r].append( float( columns[0] ) )
             f_temp.close()
-#
+
+    # Loop over inclinations, and read SED data
+
             for i in range(len(inclins)):
-#
-    # Test whether rays interesecting bin boundaries has impact of inclinations
-    # depedent SED
-#
-#                if (inclins[i] == 0) and (cut[c] == "POST") and \
-#                  ((snaps[s] == "1611") or (snaps[s] == "1686")):
-#                    f_sed = dat_dir+"/"+snaps[s]+"/"+cut[c]+ \
-#                      "/dat/spectrum"+str(int(t_star[s]))+isrf_ext+ \
-#                      "_1i.out"
-#                else:
-#                    f_sed = dat_dir+"/"+snaps[s]+"/"+cut[c]+ \
-#                      "/dat/spectrum"+str(int(t_star[s]))+isrf_ext+ \
-#                      "_"+str(int(inclins[i]))+"i.out"
-#
+
                 f_sed = dat_dir+"/"+snaps[s]+"/"+cut[c]+ \
                   "/dat/spectrum"+str(int(t_star[s]))+isrf_ext+ \
                   "_"+str(int(inclins[i]))+"i.out"
-                f_sed = open(f_sed, "r")
-                for l in range(3):
-                    trash = f_sed.readline()
-                for lines in f_sed:
-                    lines = lines.strip() ; columns = lines.split()
-                    wavs[s][c][r][i].append(float(columns[0]))
-                    flam[s][c][r][i].append( float(columns[1]) * \
-                      ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) )
-                f_sed.close()
-#
+
+                wavs[s][c][r][i], flam[s][c][r][i], lam_flam, \
+                 nu, fnu, nu_fnu = fs.SED_read(f_sed)
+
+    # Normalise if called for
+
                 if sed_norm:
                     fnorm = ( (r_star[s] * cs.cm_per_rsol)**2. \
                       * cs.sigma_sb_cgs * (t_star[s])**4. ) / \
@@ -381,10 +363,10 @@ for r in range(len(isrf)):
     for c in range(len(cut)):
         for s in range(len(snaps)/2):
             s1 = s*2 ; s2 = (s*2)+1
-#
+
             fig = plt.figure(1)
             ax1 = plt.subplot(111)
-#
+
             for i in range(len(inclins)):
                 plt.plot( wavs[s1][c][r][i], flam[s1][c][r][i], \
                   label = name_ea[0]+": "+str(inclins[i])+" deg.", \

@@ -6,10 +6,12 @@ Diagnostic procedure to check, for a single SED file, the bolometric
 luminosity
 
 Author: Benjamin bmacfarlane
-Date: 11/07/2018
+Date: 20/08/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
+
+    # Import system modules
 
 import math
 import numpy as np
@@ -19,11 +21,12 @@ from scipy.interpolate import interp1d
     # Append location of constants and functions modules into pythonpath
 
 import sys
-cwd = os.getcwd()
-sys.path.insert(0,cwd+'/../')
+sys.path.insert(0,"./../")
+
+    # Import local modules
 
 import constants as cs
-from functions import Trapezoidal
+import functions as fs
 
 
 # ------------------------------------------------------------------------------
@@ -31,36 +34,25 @@ from functions import Trapezoidal
 
 arch_dir = os.getcwd()+"/../../runs"
 
-run_dir = arch_dir+"/ENVELOPE/ENVELOPE_ISRF"
+run_dir = arch_dir+"/OUTBURST/1686/POST"
 
-file_read = run_dir+"/dat/spectrumISRF_0i.out"
-
-int_sample = int(1e5)
+file_read = run_dir+"/dat/spectrum19248_ISRF_0i.out"
 
 # ------------------------------------------------------------------------------
 
-wavs = [] ; flam = []
-f = open(file_read, "r")
-for j in range(3):
-    header = f.readline()
-for lines in f:
-    lines = lines.strip() ; columns = lines.split()
-    wavs.append(float(columns[0]))
-    flam.append(float(columns[1]) * \
-      ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-f.close()
+    # Read SED, using relevant function
 
-for i in range(len(wavs)):
-    wavs[i] *= cs.cm_per_micron
+wav, flam, lam_flam, nu, fnu, nu_fnu = fs.SED_read(file_read)
 
-flux_int = interp1d(wavs, flam, kind="cubic")
-a = min(wavs) ; b = max(wavs)
-def g(lam):
-    return flux_int(lam)
-result = Trapezoidal(g, a, b, int_sample)
-L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
+    # From SED data, call relevant function to derive bolometric properties
+
+L_bol = fs.Lbol_calc(nu, fnu)
 
 print("\nBolometric Luminosity is {0} L_sol\n".format(L_bol))
+
+T_bol = fs.Tbol_calc(nu, fnu, nu_fnu)
+
+print("\nBolometric Temperature is {0} K\n".format(T_bol))
 
 os.remove("./../constants.pyc")
 os.remove("./../functions.pyc")

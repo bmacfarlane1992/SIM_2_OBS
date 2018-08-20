@@ -4,6 +4,20 @@ functions.py
 
 Common functions to be called by any Python procedures.
 
+Current list of functions and brief outline:
+
+    - Trapezoidal() - Integrate function numerically, using trapezium rule
+
+    - SED_read() - Read SED data, calculating fluxes in terms of lambda, and nu
+
+    - Lbol_calc() - Use integrated SED data, to compute bolometric luminosity
+
+    - L_ratio_calc() - Compute sub-mm to bolometric luminosity ratio
+
+    - Tbol_calc() - Use integrated SED data, to compute bolometric temperature
+
+    - Column_Density() - Estimate column density of line-of-sight to protostar
+
 Author: Benjamin MacFarlane
 Date: 20/03/2018
 Contact: bmacfarlane@uclan.ac.uk
@@ -16,6 +30,7 @@ Contact: bmacfarlane@uclan.ac.uk
 
 import numpy as np
 import math
+from scipy.interpolate import interp1d
 
 import constants as cs
 
@@ -30,7 +45,9 @@ import constants as cs
 ### ------------------------------------------------------------------------ ###
 
 
-def Trapezoidal(function, start, end, n_increments):
+def Trapezoidal(function, start, end):
+
+    n_increments = int(1e5)
 
     width = (end - start) / float(n_increments)
     height = 0.5 * (function(start) + function(end))
@@ -39,6 +56,105 @@ def Trapezoidal(function, start, end, n_increments):
 
     return width * height
 
+
+### ------------------------------------------------------------------------ ###
+    # Function that read an SED file, and return all data as required for  #
+    # SED plots/analysis.                                                  #
+    # Note: All fluxes are normalised to 1 pc as per RADMC-3D              #
+### ------------------------------------------------------------------------ ###
+
+
+def SED_read(file):
+
+    # Initialise lists to be appended to
+
+    wav = [] ; flam = [] ; lam_flam = [] ; nu = [] ; fnu = [] ; nu_fnu = []
+
+    # Read file, and append to relevant lists - deriving values are needed
+
+    f = open(file, "r")
+    for j in range(3):
+        header = f.readline()
+    for lines in f:
+        lines = lines.strip() ; columns = lines.split()
+        wav.append(float(columns[0]))
+        flam.append(float(columns[1]) * \
+           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
+        lam_flam.append(float(columns[1]) * \
+           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) ) )
+        nu.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
+        fnu.append(float(columns[1]))
+        nu_fnu.append( (cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) ) * \
+         float(columns[1]) )
+    f.close()
+
+    # Reverse frequency based lists, to ensure correct SED integration
+
+    nu = nu[::-1] ; fnu = fnu[::-1] ; nu_fnu = nu_fnu[::-1]
+
+    wav = np.array(wav) ; flam = np.array(flam) ; lam_flam = np.array(lam_flam)
+    nu = np.array(nu) ; fnu = np.array(fnu) ; nu_fnu = np.array(nu_fnu)
+
+    return wav, flam, lam_flam, nu, fnu, nu_fnu
+
+### ------------------------------------------------------------------------ ###
+    # Function that uses SED data, to integrate and compute L_bol          #
+### ------------------------------------------------------------------------ ###
+
+
+def Lbol_calc(nu, fnu):
+
+    flux_int = interp1d(nu, fnu, kind="cubic")
+    a = min(nu) ; b = max(nu)
+    def g(nu):
+        return flux_int(nu)
+    result = Trapezoidal(g, a, b)
+    L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
+
+    return L_bol
+
+
+### ------------------------------------------------------------------------ ###
+    # Function that computes ratio of sub-mm to bolometric luminosity      #
+### ------------------------------------------------------------------------ ###
+
+
+def L_ratio_calc(nu, fnu):
+
+    L_bol = Lbol_calc(nu, fnu)
+
+    flux_int = interp1d(nu, fnu, kind="cubic")
+    a = min(nu) ; b = cs.c / 350.e-6
+    def g(nu):
+        return flux_int(nu)
+    result = Trapezoidal(g, a, b)
+    L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
+
+    L_ratio = (L_submm / L_bol) * 100.0
+
+    return L_ratio
+
+### ------------------------------------------------------------------------ ###
+    # Function that uses SED data, to integrate and compute T_bol          #
+### ------------------------------------------------------------------------ ###
+
+
+def Tbol_calc(nu, fnu, nu_fnu):
+
+    flux_int = interp1d(nu, fnu, kind="cubic")
+    a = min(nu) ; b = max(nu)
+    def g(nu):
+        return flux_int(nu)
+    result1 = Trapezoidal(g, a, b)
+
+    energy_int = interp1d(nu, nu_fnu, kind = "cubic")
+    def g(nu):
+        return energy_int(nu)
+    result2 = Trapezoidal(g, a, b)
+
+    T_bol = 1.25e-11 * (result2 / result1)
+
+    return T_bol
 
 ### ------------------------------------------------------------------------ ###
     # Calculate the Planck function variable B_nu, using input of          #
@@ -189,26 +305,3 @@ def Column_Density(inclin, phi, x, y, z, xw, rho):
     rho_column = np.sum(l * rho)
 
     return rho_column
-
-### ------------------------------------------------------------------------ ###
-    #                               #
-### ------------------------------------------------------------------------ ###
-
-
-def adjustFigAspect(fig,aspect=1):
-    '''
-    Adjust the subplot parameters so that the figure has the correct
-    aspect ratio.
-    '''
-    xsize,ysize = fig.get_size_inches()
-    minsize = min(xsize,ysize)
-    xlim = .4*minsize/xsize
-    ylim = .4*minsize/ysize
-    if aspect < 1:
-        xlim *= aspect
-    else:
-        ylim /= aspect
-    fig.subplots_adjust(left=.5-xlim,
-                        right=.5+xlim,
-                        bottom=.5-ylim,
-                        top=.5+ylim)

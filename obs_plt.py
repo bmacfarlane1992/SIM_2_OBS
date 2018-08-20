@@ -7,13 +7,15 @@ Module to plot synthetic observations for either:
     - Continuum dust images, with radmc3dPy modules
     - Spectral energy distributions
 
-Last Modified: 27/02/2018
+Last Modified: 20/08/2018
 
 '''
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - MODULE IMPORTS - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+    # Import system modules
 
 import imp
 import os
@@ -23,6 +25,7 @@ import math
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
+    # (Try to) Import local modules
 
 try:
     imp.find_module("radmc3dPy")
@@ -33,8 +36,7 @@ except:
 
 import constants as cs
 from params_run import *
-
-from functions import Trapezoidal
+import functions as fs
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - MAIN PROGRAM - - - # # #
@@ -91,85 +93,57 @@ def image(plt_dir, inclin):
 def sed(arch_dir, dat_dir, sdat_ext, plt_dir, plt_ext, inclin, \
   t_star, r_star, t_planet, r_planet, beam_r):
 
-    wav = [] ; nu = []
-    fnu = [] ; flam = [] ; lam_flam = []
-    flux_bol = 0.0 ; flux_submm = 0.0
+    # Read in SED, as per sdat_ext, usinf SED_read() function
 
-    f = open(dat_dir+"/spectrum"+sdat_ext,"r")
+    file_read = dat_dir + "/spectrum" + sdat_ext
+    wav, flam, lam_flam, nu, fnu, nu_fnu = fs.SED_read(file_read)
 
-    # Read in data, converting F_nu to F_lambda and lambda F_lambda.
-    # lambda F_lambda normalised to observer distance, F_lambda at 1 pc
+    # Normalise plotted lam_flam list to user defined distance to source
 
-    for j in range(3):
-        header = f.readline()
-    for lines in f:
-        lines = lines.strip() ; columns = lines.split()
-        wav.append(float(columns[0]))
-        fnu.append(float(columns[1]))
-        nu.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-        flam.append(float(columns[1]) * \
-           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-        lam_flam.append(float(columns[1]) * \
-           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) ) / dist**(2.0))
-    f.close()
-    nu = nu[::-1]
+    lam_flam /= dist**(2.0)
+
+    # Do the same, for protostellar SED, as comparison to RT output
 
     if incl_star and (mod_inp != "protostar"):
+
         shutil.copy2(arch_dir+"/protostar/spectrum"+str(int(t_star))+".out",
-          dat_dir+"/")
-        wav_star = [] ; nu_star = []
-        fnu_star = [] ; flam_star = [] ; lam_flam_star = []
-        f = open(dat_dir+"/spectrum"+str(int(t_star))+".out","r")
-        for j in range(3):
-            header = f.readline()
-        for lines in f:
-            lines = lines.strip() ; columns = lines.split()
-            wav_star.append(float(columns[0]))
-            nu_star.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-            fnu_star.append(float(columns[1]))
-            flam_star.append(float(columns[1]) * \
-              ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-            lam_flam_star.append( float(columns[1]) * \
-              ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) ) \
-              / dist**(2.0))
-        f.close()
-        nu_star = nu_star[::-1]
+         dat_dir+"/")
+
+        file_read = dat_dir + "/spectrum"+str(int(t_star)) + ".out"
+        wav_star, flam_star, lam_flam_star, \
+         nu_star, fnu_star, nu_fnu_star = fs.SED_read(file_read)
+
+        lam_flam_star /= dist**(2.0)
+
+    # If a planet is present in the SED calculation, apply the same read
+    # and normalisation to the relevant data
 
         if incl_planet:
+
             shutil.copy2(arch_dir+"/protostar/spectrum"+str(int(t_planet))+ \
-              ".out", dat_dir+"/")
-            wav_planet = [] ; nu_planet = []
-            fnu_planet = [] ; flam_planet = [] ; lam_flam_planet = []
-            f = open(dat_dir+"/spectrum"+str(int(t_planet))+".out","r")
-            for j in range(3):
-                header = f.readline()
-            for lines in f:
-                lines = lines.strip() ; columns = lines.split()
-                wav_planet.append(float(columns[0]))
-                nu_planet.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-                fnu.append(float(columns[1]))
-                flam_planet.append(float(columns[1]) * \
-                  ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-                lam_flam_planet.append( float(columns[1]) * \
-                  (cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)) / \
-                  dist**(2.0))
-            f.close()
-            nu_planet = nu_planet[::-1]
+             ".out", dat_dir+"/")
+
+            file_read = dat_dir + "/spectrum"+str(int(t_planet)) + ".out"
+            wav_planet, flam_planet, lam_flam_planet, \
+             nu_planet, fnu_planet, nu_fnu_planet = fs.SED_read(file_read)
+
+            lam_flam_planet /= dist**(2.0)
 
     # Dependent on sed_norm, either set limits, then compute total flux
     # from central source to normalise SED, or set flam limits based on
     # absolute values
 
     if sed_norm:
+
         norm = ( (r_star * cs.cm_per_rsol)**2. * cs.sigma_sb_cgs * \
           (t_star)**4. ) / (cs.cm_per_pc)**2.
-        for j in range(len(lam_flam)):
-            lam_flam[j] = lam_flam[j] / norm
-        ymax = max(lam_flam) * 10.0
+
+        lam_flam /= norm
 
         if incl_star and (mod_inp != "protostar"):
-            for j in range(len(lam_flam_star)):
-                lam_flam_star[j] = lam_flam_star[j] / norm
+            lam_flam_star /= norm
+
+        ymax = max(lam_flam) * 10.0
 
     elif not sed_norm:
         ymax = max(lam_flam) * 10.0
@@ -207,7 +181,7 @@ def sed(arch_dir, dat_dir, sdat_ext, plt_dir, plt_ext, inclin, \
 
     # Compute diagnostics for YSO classification from SED data
 
-    yso_class(nu, fnu, nu_star, fnu_star, t_star, r_star)
+    yso_class(nu_star, fnu_star, nu, fnu, nu_fnu, t_star, r_star)
 
     return
 
@@ -215,8 +189,10 @@ def sed(arch_dir, dat_dir, sdat_ext, plt_dir, plt_ext, inclin, \
 
 def flux_values(wav, fnu, beam_r):
 
-    # First, interpolate fnu values
+    # First, interpolate fnu values. fnu must be flipped, to account for
+    # prior flip to account for integration
 
+    fnu = fnu[::-1]
     fnu_int = interp1d(wav, fnu, kind = "cubic")
 
 #    wavs = [70, 350, 450, 850, 1300]
@@ -225,7 +201,6 @@ def flux_values(wav, fnu, beam_r):
     for i in range(len(wavs)):
 
         fnu_cgs = fnu_int(wavs[i])
-
 
         if (wavs[i] == 450):
             beam_r = dist * 7.9 * cs.cm_per_au
@@ -245,68 +220,30 @@ def flux_values(wav, fnu, beam_r):
 
 ### ------------------------------------------------------------------------ ###
 
-def yso_class(nu, fnu, nu_star, fnu_star, t_star, r_star):
-
-    # Set trapezium rule for numerical integration
-
-    int_sample = int(1e5)
+def yso_class(nu_star, fnu_star, nu, fnu, nu_fnu, t_star, r_star):
 
     # Protostellar bolometric luminosity
 
-    fnu_star = fnu_star[::-1]
-    flux_int = interp1d(nu_star, fnu_star, kind="cubic")
-    a = min(nu_star) ; b = max(nu_star)
-    def g(lam):
-        return flux_int(lam)
-    result = Trapezoidal(g, a, b, int_sample)
-    L_star = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
+    L_star = fs.Lbol_calc(nu_star, fnu_star)
 
     # Model bolometric luminosity
 
-    fnu = fnu[::-1]
-    flux_int = interp1d(nu, fnu, kind="cubic")
-    a = min(nu) ; b = max(nu)
-    def g(lam):
-        return flux_int(lam)
-    result = Trapezoidal(g, a, b, int_sample)
-    L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
+    L_bol = fs.Lbol_calc(nu, fnu)
 
-    # Model sub-mm luminosity
+    # Ratio of model sub-mm to bolometric luminosity
 
-    a = min(nu) ; b = cs.c / 350.e-6
-    def g(lam):
-        return flux_int(lam)
-    result = Trapezoidal(g, a, b, int_sample)
-    L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
-
-    # Print values to terminal
-
-    ratio_submm_bol = (L_submm / L_bol) * 100.0
-    print("\nProtostellar luminosity (SED) is: {0} L_sol\n".format(L_star))
-    print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
-    print("Sub-mm luminosity is: {0} L_sol\n".format(L_submm))
-    print("Ratio of Bolometric and sub-mm "+ \
-      "luminosity is {0} %\n".format(ratio_submm_bol) )
+    L_ratio = fs.L_ratio_calc(nu, fnu)
 
     # Compute bolometric temperature for model SED
 
-    flux_int = interp1d(nu, fnu, kind="cubic")
-    a = min(nu) ; b = max(nu)
-    def g(lam):
-        return flux_int(lam)
-    result1 = Trapezoidal(g, a, b, int_sample)
+    T_bol = fs.Tbol_calc(nu, fnu, nu_fnu)
 
-    nu_fnu = []
-    for w in range(len(nu)):
-        nu_fnu.append(fnu[w] * nu[w])
+    # Print values to terminal
 
-    energy_int = interp1d(nu, nu_fnu, kind = "cubic")
-    def g(lam):
-        return energy_int(lam)
-    result2 = Trapezoidal(g, a, b, int_sample)
-
-    T_bol = 1.25e-11 * (result2 / result1)
-
+    print("\nProtostellar luminosity (SED) is: {0} L_sol\n".format(L_star))
+    print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
+    print("Ratio of Bolometric and sub-mm "+ \
+      "luminosity is {0} %\n".format(L_ratio) )
     print("Bolometric temperature is: {0} K\n".format(T_bol))
 
     return
