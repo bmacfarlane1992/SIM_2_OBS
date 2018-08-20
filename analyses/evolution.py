@@ -42,8 +42,11 @@ dist = 140.0            # Float: Distance to source (pc)
 		# # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 #
-dat_dir = os.getcwd()+"/../../../runs/EVOLUTION/"
-plt_dir = os.getcwd()+"/../plots/"
+cwd = os.getcwd()
+
+run_dir = cwd + "/../../runs/EVOLUTION"
+plt_dir = run_dir + "/plots_analysis"
+
 if not os.path.isdir(plt_dir):
     os.system('mkdir '+plt_dir)
 #
@@ -61,14 +64,14 @@ for i in range(len(snaps)):
 #
     # Read snapshot specific protostellar properties/SED
 #
-    fname = dat_dir+snaps[i]+"/stars.inp"
+    fname = run_dir + "/" + snaps[i] + "/dat/stars.inp"
     f = open(fname, 'r')
     trash = f.readline() ; trash = f.readline()
     r_star.append(float(f.readline().split(' ')[0]) * rsol_per_cm)
     t_star.append(-float(f.readlines()[-1]))
     f.close()
 #
-    fname = dat_dir+snaps[i]+"/spectrum"+str(int(t_star[i]))+".out"
+    fname = run_dir + "/" + snaps[i] + "/dat/spectrum"+str(int(t_star[i]))+".out"
     f = open(fname, 'r')
     for l in range(3):
         trash = f.readline()
@@ -94,7 +97,7 @@ for i in range(len(snaps)):
 #
     for j in range(len(inclins)):
 #
-        fname = dat_dir+snaps[i]+"/spectrum_"+str(inclins[j])+"i.out"
+        fname = run_dir + "/" + snaps[i] + "/dat/spectrum_"+str(inclins[j])+"i.out"
         f = open(fname, 'r')
         for l in range(3):
             trash = f.readline()
@@ -141,7 +144,7 @@ for i in range(len(snaps)):
     ax1.set_xlim(1.e-1,10000.)
     ax1.set_yscale('log') ; ax1.set_ylim( ymin, ymax )
     plt.legend(loc = 'upper right', fontsize=8, scatterpoints = 20)
-    plt.savefig(plt_dir + "SED_"+snaps[i]+".png") ; plt.clf()
+    plt.savefig(plt_dir + "/SED_"+snaps[i]+".png") ; plt.clf()
 #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
@@ -181,4 +184,4 @@ plt.xticks(fontsize = 15) ;   ax1.set_xscale('log')
 ax1.set_xlim(1.e-1,10000.)
 ax1.set_yscale('log') ; ax1.set_ylim( ymin, ymax )
 plt.legend(loc = 'upper right', fontsize=8, scatterpoints = 20)
-plt.savefig(plt_dir + "SED_compare.png") ; plt.clf()
+plt.savefig(plt_dir + "/SED_compare.png") ; plt.clf()

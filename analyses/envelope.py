@@ -52,7 +52,7 @@ cwd = os.getcwd()
 
 arch_dir = cwd + "/../.."	# Project architecture directory
 run_dir = arch_dir + "/runs/ENVELOPE"
-plt_dir = run_dir+"/plots_analysis"
+plt_dir = run_dir + "/plots_analysis"
 #
     # Initialise arrays for reading in data
 #

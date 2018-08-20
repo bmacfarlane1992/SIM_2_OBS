@@ -62,9 +62,11 @@ plt_form = "png"        # Str.: Output plot format ["png","eps"]
 		# # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 #
-arch_dir = os.getcwd()+"/../../../.."
-dat_dir = os.getcwd()+"/../.."
-plt_dir = os.getcwd()+"/../plots"
+cwd = os.getcwd()
+arch_dir = cwd + "/../.."
+dat_dir = arch_dir + "/runs/OUTBURST"
+plt_dir = dat_dir + "/plots_analysis"
+
 if not os.path.isdir(plt_dir):
     os.system("mkdir {0}/".format(plt_dir) )
 #
