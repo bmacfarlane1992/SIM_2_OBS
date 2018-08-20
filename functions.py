@@ -8,6 +8,8 @@ Current list of functions and brief outline:
 
     - Trapezoidal() - Integrate function numerically, using trapezium rule
 
+    - Quad_int() - Intgrate function numerically, using Fortra lib QUADPACK
+
     - SED_read() - Read SED data, calculating fluxes in terms of lambda, and nu
 
     - Lbol_calc() - Use integrated SED data, to compute bolometric luminosity
@@ -31,9 +33,18 @@ Contact: bmacfarlane@uclan.ac.uk
 import numpy as np
 import math
 from scipy.interpolate import interp1d
+import scipy.integrate as integrate
 
 import constants as cs
-
+#
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+        # # # - - - VARIABLE DEFINITIONS - - - # # #
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+#
+#
+int_scheme = "quad"     # Integration scheme: ["trapezium","quad"]
+#
+#
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -45,7 +56,10 @@ import constants as cs
 ### ------------------------------------------------------------------------ ###
 
 
-def Trapezoidal(function, start, end):
+def Trapezoidal(x, y, start, end):
+
+    interp = interp1d(x, y, kind="cubic")
+    function = lambda x: interp(x)
 
     n_increments = int(1e5)
 
@@ -55,6 +69,23 @@ def Trapezoidal(function, start, end):
         height = height + function(start + i * width)
 
     return width * height
+
+
+
+### ------------------------------------------------------------------------ ###
+    # Function that numerically integrates a function between limits start #
+    # and end, by adopting Fortran QUADPACK integration methods            #
+### ------------------------------------------------------------------------ ###
+
+
+def Quad_int(x, y, start, end):
+
+    interp = interp1d(x, y, kind="cubic")
+    function = lambda x: interp(x)
+
+    soln = integrate.quad(function, start, end, limit=200)
+
+    return soln[0]
 
 
 ### ------------------------------------------------------------------------ ###
@@ -104,11 +135,16 @@ def SED_read(file):
 
 def Lbol_calc(nu, fnu):
 
-    flux_int = interp1d(nu, fnu, kind="cubic")
-    a = min(nu) ; b = max(nu)
-    def g(nu):
-        return flux_int(nu)
-    result = Trapezoidal(g, a, b)
+    min_nu = min(nu) ; max_nu = max(nu)
+
+    if (int_scheme == "trapezium"):
+        result = Trapezoidal(nu, fnu, min_nu, max_nu)
+    elif (int_scheme == "quad"):
+        result = Quad_int(nu, fnu, min_nu, max_nu)
+    else:
+        print("Incorrect integration scheme selected in functions.py")
+        exit()
+
     L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
 
     return L_bol
@@ -123,11 +159,16 @@ def L_ratio_calc(nu, fnu):
 
     L_bol = Lbol_calc(nu, fnu)
 
-    flux_int = interp1d(nu, fnu, kind="cubic")
-    a = min(nu) ; b = cs.c / 350.e-6
-    def g(nu):
-        return flux_int(nu)
-    result = Trapezoidal(g, a, b)
+    min_nu = min(nu) ; max_nu = cs.c / 350.e-6
+
+    if (int_scheme == "trapezium"):
+        result = Trapezoidal(nu, fnu, min_nu, max_nu)
+    elif (int_scheme == "quad"):
+        result = Quad_int(nu, fnu, min_nu, max_nu)
+    else:
+        print("Incorrect integration scheme selected in functions.py")
+        exit()
+
     L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result) / cs.Lsol_cgs
 
     L_ratio = (L_submm / L_bol) * 100.0
@@ -141,16 +182,16 @@ def L_ratio_calc(nu, fnu):
 
 def Tbol_calc(nu, fnu, nu_fnu):
 
-    flux_int = interp1d(nu, fnu, kind="cubic")
-    a = min(nu) ; b = max(nu)
-    def g(nu):
-        return flux_int(nu)
-    result1 = Trapezoidal(g, a, b)
+    min_nu= min(nu) ; max_nu = max(nu)
 
-    energy_int = interp1d(nu, nu_fnu, kind = "cubic")
-    def g(nu):
-        return energy_int(nu)
-    result2 = Trapezoidal(g, a, b)
+    if (int_scheme == "trapezium"):
+        result1 = Trapezoidal(nu, fnu, min_nu, max_nu)
+        result2 = Trapezoidal(nu, nu_fnu, min_nu, max_nu)
+    elif (int_scheme == "quad"):
+        result1 = Quad_int(nu, fnu, min_nu, max_nu)
+        result2 = Quad_int(nu, nu_fnu, min_nu, max_nu)
+    else:
+        print("Incorrect integration scheme selected in functions.py")
 
     T_bol = 1.25e-11 * (result2 / result1)
 
