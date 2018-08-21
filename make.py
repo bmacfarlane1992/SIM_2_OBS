@@ -32,14 +32,59 @@ import sys
 		# # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
-arch_dir = os.getcwd()+"/.."
+    # Intitialise objects to be appended to within SIM_2_OBS
+
+class globals:
+
+    arch_dir = os.getcwd()+"/.."
+    run_dir = ""
+    dat_dir = ""
+    plt_dir = ""
+
+    plt_ext = ""
+    tdat_ext = ""
+    pdat_ext = ""
+    sdat_ext = ""
+
+class rt_params:
+
+    t_star = 0.0
+    r_star = 0.0
+    l_star = 0.0
+
+    t_planet = 0.0
+    r_planet = 0.0
+
+    wavs = []
+    n_wavs = 0
+
+class inp_model:
+
+    pos = [[] for i in range(3)]
+    rho = []
+    h = []
+    m_part = []
+    r = []
+    extras = []
+
+class rt_model:
+
+    xloc = []
+    yloc = []
+    zloc = []
+    rloc = []
+    rloc_xy = []
+    xwid = []
+    rho = []
+
+### ------------------------------------------------------------------------ ###
 
     # Find parameters files for batch SIM_2_OBS analyses in /params/pending, or
     # simply adopt parameters.py in /params. If multiple params used, ensure
     # completed runs are transported to params/done directory
 
-param_dir = arch_dir + "/params/pending"
-params_done_dir = arch_dir + "/params/done"
+param_dir = globals.arch_dir + "/params/pending"
+params_done_dir = globals.arch_dir + "/params/done"
 f_params = [] ; f_ext = []
 if os.path.isdir(param_dir):
     if not (os.path.isdir(params_done_dir)):
@@ -56,7 +101,7 @@ if os.path.isdir(param_dir):
                 continue
 
 if (len(f_params) == 0):
-    f_params.append(arch_dir+"/params/parameters.py")
+    f_params.append(globals.arch_dir+"/params/parameters.py")
 
 for files in range(len(f_params)):
     shutil.copy2( f_params[files], os.getcwd()+"/params_run.py" )
@@ -65,7 +110,7 @@ for files in range(len(f_params)):
     # Now /src/ modules, to ensure that "from params_run import *" can be
     # used at modular level
 
-    from params_run import *
+    import params_run as ps
     import inp_gen
     import dens_gen
     import grid_gen
@@ -80,207 +125,211 @@ for files in range(len(f_params)):
 
 ### ------------------------------------------------------------------------ ###
 
-    # Generate run/dat/plt directory, in which data/plots are stored
+    # Define, then generate run/dat/plt directoried, where data/plots are stored
 
-    run_dir = arch_dir+"/runs/"+run_tag
-    dat_dir = run_dir+"/dat" ; plt_dir = run_dir+"/plots"
+    globals.run_dir = globals.arch_dir + "/runs/" + ps.run_tag
+    globals.dat_dir = globals.run_dir+"/dat"
+    globals.plt_dir = globals.run_dir+"/plots"
 
-    if not (os.path.isdir(run_dir)):
-        os.makedirs(run_dir)
-    if not (os.path.isdir(dat_dir)):
-        os.makedirs(dat_dir)
-    if not (os.path.isdir(plt_dir)):
-        os.makedirs(plt_dir)
+    if not os.path.isdir(globals.run_dir):
+        os.makedirs(globals.run_dir)
+    if not os.path.isdir(globals.dat_dir):
+        os.makedirs(globals.dat_dir)
+    if not os.path.isdir(globals.plt_dir):
+        os.makedirs(globals.plt_dir)
 
 ### ------------------------------------------------------------------------ ###
 
 	# Make most .inp files. If source SEDs not present in /protostar/, generate
 
-    plt_ext, tdat_ext, pdat_ext, t_star, r_star, t_planet, r_planet, \
-      llambda, wav_bins = inp_gen.gen(arch_dir, dat_dir, plt_dir)
+    globals, rt_params = inp_gen.gen(globals, rt_params)
 
 ### ------------------------------------------------------------------------ ###
 
     # If called for, make AMR grid from constructed SPH particle distribution
     # (simulation or model) with HYPERION, then generate opacity tables
 
-    if RT_RUN:
+    if ps.RT_RUN:
 
-        if GRID and (mod_inp != "yso"):
-            if sim_inp:
-                pos, rho, h, m_part, r, extras = dens_gen.sim(arch_dir)
-            elif not sim_inp:
-                pos, rho, h, m_part, r, extras = dens_gen.model()
+        if ps.GRID and (ps.mod_inp != "yso"):
 
-            grid_gen.translate(dat_dir, pos, rho, h, m_part, r, extras)
+            if ps.sim_inp:
+                inp_model = dens_gen.sim()
 
-        elif GRID and (mod_inp == "yso"):
-            grid_gen.yso(dat_dir)
+            elif not ps.sim_inp:
+                inp_model = dens_gen.model()
 
-        if (run_tag != "EC53"):
-            opac_gen.gen(arch_dir, dat_dir, plt_dir, llambda, wav_bins)
+            grid_gen.translate(globals, inp_model)
+
+        elif ps.GRID and (ps.mod_inp == "yso"):
+            grid_gen.yso(globals)
+
+        if (ps.run_tag != "EC53"):
+            opac_gen.gen(globals, rt_params)
+
 
 ### ------------------------------------------------------------------------ ###
 
     # Apply cuts and/or mass rescaling for full/components of simulation
 
-    if sim_inp:
+    if ps.sim_inp:
 
-        if (run_tag == "EC53") and RT_RUN and MCRT:
-            ec53_rt.gen(arch_dir, dat_dir, plt_dir)
+        if (ps.run_tag == "EC53") and ps.RT_RUN and ps.MCRT:
+            ec53_rt.gen(globals)
 
-        if FULL_mass_scale and not (DISC_mass_scale or ENV_mass_scale):
-            scale_cut.pre_full_scale(dat_dir)
+        if ps.FULL_mass_scale and not (ps.DISC_mass_scale or ps.ENV_mass_scale):
+            scale_cut.pre_full_scale(globals)
 
-        if (DISC_mass_scale and ENV_mass_scale):
-            scale_cut.pre_comp_scale(dat_dir)
+        if (ps.DISC_mass_scale and ps.ENV_mass_scale):
+            scale_cut.pre_comp_scale(globals)
 
-        if (DISC_mass_mult and ENV_mass_mult):
-            scale_cut.pre_comp_mult(dat_dir)
+        if (ps.DISC_mass_mult and ps.ENV_mass_mult):
+            scale_cut.pre_comp_mult(globals)
 
-        if MCRT_cut:
-            scale_cut.pre_cut(dat_dir)
+        if ps.MCRT_cut:
+            scale_cut.pre_cut(globals)
 
-        if MCRT_cut_scale:
-            scale_cut.pre_cut_scale(dat_dir)
+        if ps.MCRT_cut_scale:
+            scale_cut.pre_cut_scale(globals)
 
-        if CAVITY_rho:
-            scale_cut.cavity_gen(dat_dir)
+        if ps.CAVITY_rho:
+            scale_cut.cavity_gen(globals)
 
-        if ENV_rho:
-            scale_cut.envelope_gen(dat_dir)
+        if ps.ENV_rho:
+            scale_cut.envelope_gen(globals)
 
-        if R_DESTR:
-            R_DESTR = scale_cut.inner_cavity(dat_dir, t_star, r_star)
+        if ps.R_DESTR:
+            ps.R_DESTR = scale_cut.inner_cavity(globals, rt_params)
 
 ### ------------------------------------------------------------------------ ###
 
     # Run MCRT to generate temperature distribution
 
-    if RT_RUN and MCRT:
+    if ps.RT_RUN and ps.MCRT:
 
-        os.chdir(dat_dir+"/")
-        os.system("{0}radmc3d mctherm".format(exec_loc) )
+        os.chdir(globals.dat_dir+"/")
+        os.system("{0}radmc3d mctherm".format(ps.exec_loc) )
 
-        shutil.copy2( dat_dir+"/dust_temperature.dat", \
-          dat_dir+"/dust_temperature"+tdat_ext )
-        shutil.copy2( dat_dir+"/photon_statistics.out", \
-          dat_dir+"/photon_statistics"+pdat_ext )
+        shutil.copy2( globals.dat_dir+"/dust_temperature.dat", \
+          globals.dat_dir+"/dust_temperature"+globals.tdat_ext )
+        shutil.copy2( globals.dat_dir+"/photon_statistics.out", \
+          globals.dat_dir+"/photon_statistics"+globals.pdat_ext )
 
 ### ------------------------------------------------------------------------ ###
 
     # If model is spatially restricted or mass scaled before RRT, do here
 
-    if RRT_cut:
-        scale_cut.post_cut(dat_dir, tdat_ext)
+    if ps.RRT_cut:
+        scale_cut.post_cut(globals)
 
 ### ------------------------------------------------------------------------ ###
 
     # Run RRT to generate SED. Also move .dat/.inp files dependent on which
     # radiation sources are included in raytracing
 
-    if RT_RUN and RRT:
+    if ps.RT_RUN and ps.RRT:
 
-        os.chdir(dat_dir+"/")
-        print os.getcwd(), dat_dir, tdat_ext
-        shutil.copy2(dat_dir+"/dust_temperature"+tdat_ext, \
-          dat_dir+"/dust_temperature.dat" )
+        os.chdir(globals.dat_dir+"/")
+        print os.getcwd(), globals.dat_dir, globals.tdat_ext
+        shutil.copy2(globals.dat_dir+"/dust_temperature"+globals.tdat_ext, \
+         globals.dat_dir+"/dust_temperature.dat" )
 
-        if not os.path.isdir(dat_dir+"/isrf/"):
-            os.makedirs(dat_dir+"/isrf")
+        if not os.path.isdir(globals.dat_dir+"/isrf/"):
+            os.makedirs(globals.dat_dir+"/isrf")
 
-        if incl_isrf and not incl_star:
-            shutil.move(dat_dir+"/external_source.inp", \
-              dat_dir+"/isrf/external_source.inp")
-            shutil.move(dat_dir+"/bin/stars.inp", dat_dir+"/stars.inp")
-        elif incl_isrf and incl_star:
-            shutil.move(dat_dir+"/external_source.inp", \
-              dat_dir+"/isrf/external_source.inp")
+        if ps.incl_isrf and not ps.incl_star:
+            shutil.move(globals.dat_dir+"/external_source.inp", \
+             globals.dat_dir+"/isrf/external_source.inp")
+            shutil.move(globals.dat_dir+"/bin/stars.inp", \
+             globals.dat_dir+"/stars.inp")
+        elif ps.incl_isrf and ps.incl_star:
+            shutil.move(globals.dat_dir+"/external_source.inp", \
+             globals.dat_dir+"/isrf/external_source.inp")
 
-        for i in range(len(inclins)):
+        for i in range(len(ps.inclins)):
 
-            if incl_star:
-                os.system("{0}radmc3d sed incl {1}".format(exec_loc, \
-                  inclins[i]) )
-            elif not incl_star:
-                os.system("{0}radmc3d sed incl {1} nostar".format(exec_loc, \
-                  inclins[i]) )
+            if ps.incl_star:
+                os.system("{0}radmc3d sed incl {1}".format(ps.exec_loc, \
+                 ps.inclins[i]) )
+            elif not ps.incl_star:
+                os.system("{0}radmc3d sed incl {1} nostar".format(ps.exec_loc, \
+                 ps.inclins[i]) )
 
-            sdat_ext = plt_ext+"_"+str(inclins[i])+"i.out"
+            globals.sdat_ext = globals.plt_ext+"_"+str(ps.inclins[i])+"i.out"
 
-            shutil.copy2(dat_dir+"/spectrum.out", dat_dir+"/spectrum"+sdat_ext)
+            shutil.copy2(globals.dat_dir+"/spectrum.out", \
+             globals.dat_dir+"/spectrum"+globals.sdat_ext)
 
-            if (mod_inp == "protostar"):
-                shutil.copy2(dat_dir+"/spectrum"+int(t_star)+".out", \
-                  arch_dir+"/protostar/spectrum"+int(t_star)+".out")
+            if (ps.mod_inp == "protostar"):
+                shutil.copy2(globals.dat_dir+"/spectrum"+int(rt_params.t_star)+".out", \
+                  globals.arch_dir+"/protostar/spectrum"+int(rt_params.t_star)+".out")
 
 ### ------------------------------------------------------------------------ ###
 
     # Run RRT to generate SED, for multipled RRT_cut values. Used to quickly
     # evaluate impact of changing effective beam size on flux
 
-    if MULTI_RRT:
+    if ps.MULTI_RRT:
 
-        multi_beam.run(dat_dir, tdat_ext, plt_ext)
+        multi_beam.run(globals)
 
 ### ------------------------------------------------------------------------ ###
 
     # Generate diagnostic plots, and SED. Run RRT for images if called for. Also
     # generate location dependent column density/optical depth properties
 
-    if not RT_RUN:
+    if not ps.RT_RUN:
 
-        os.chdir(dat_dir)
+        os.chdir(globals.dat_dir)
 
-        if ( plot_radial or plot_slice or plot_sed):
+        if ( ps.plot_radial or ps.plot_slice or ps.plot_sed):
             xloc, yloc, zloc, rloc, xwid, rloc_xy, nrspecies, rho, diag_rho, \
               temp, diag_temp, nphot, diag_nphot, diag_sed, beam_r \
-              = inp_plt.read(dat_dir, plt_ext, tdat_ext, pdat_ext)
+              = inp_plt.read(globals)
 
-        if plot_radial and ( diag_rho or diag_temp ):
-            inp_plt.radial(dat_dir, plt_dir, plt_ext, rloc, rloc_xy, \
+        if ps.plot_radial and ( diag_rho or diag_temp ):
+            inp_plt.radial(globals, rloc, rloc_xy, \
               nrspecies, rho, diag_rho, R_DESTR, temp, diag_temp)
 
-        if plot_slice and (diag_rho or diag_temp or diag_nphot):
-            inp_plt.run_slice(plt_dir, plt_ext, xloc, yloc, zloc, xwid, \
+        if ps.plot_slice and (diag_rho or diag_temp or diag_nphot):
+            inp_plt.run_slice(globals, xloc, yloc, zloc, xwid, \
               nrspecies, rho, diag_rho, temp, diag_temp, nphot, diag_nphot)
 
-        if plot_sed and diag_sed:
+        if ps.plot_sed and diag_sed:
 
             for i in range(len(inclins)):
 
-                sdat_ext = plt_ext+"_"+str(inclins[i])+"i.out"
+                globals.sdat_ext = globals.plt_ext+"_"+str(ps.inclins[i])+"i.out"
 
-                obs_plt.sed(arch_dir, dat_dir, sdat_ext, plt_dir, plt_ext, \
-                  inclins[i], t_star, r_star, t_planet, r_planet, beam_r)
+                obs_plt.sed(globals, ps.inclins[i], rt_model, beam_r)
 
-        if plot_image:
-            for i in range(len(inclins)):
-                obs_plt.image(plt_dir, inclins[i])
+        if ps.plot_image:
+            for i in range(len(ps.inclins)):
+                obs_plt.image(globals, ps.inclins[i])
 
-        if plot_rays:
+        if ps.plot_rays:
 
             # First, generate column density map
 
-            raytrace.column(dat_dir, plt_dir, plt_ext, plt_form)
+            raytrace.column(globals)
 
             # Then generate locations at which optical depth reaches prescribed
             # value, to diagnose as a function of observer location
 
-            raytrace.tau3d(dat_dir, plt_dir, plt_form, tdat_ext)
+            raytrace.tau3d(globals)
 
             # Now compute, for specified observer what the cloud emission
             # is as a function of optical depth
 
-            raytrace.tau1d(dat_dir, plt_dir, plt_form, tdat_ext)
+            raytrace.tau1d(globals)
 
         if mass_eval:
 
-            diagnose.mass(dat_dir)
+            diagnose.mass(globals)
 
         if lum_eval:
 
-            diagnose.lum(dat_dir, tdat_ext, plt_ext)
+            diagnose.lum(globals)
 
 
 ### ------------------------------------------------------------------------ ###
@@ -289,7 +338,7 @@ for files in range(len(f_params)):
 
     # Also transfer params file to params_done_dir, to track which runs complete
 
-    os.chdir("{0}/src/".format(arch_dir))
+    os.chdir("{0}/src/".format(globals.arch_dir))
     del sys.modules["params_run"]
     os.remove(os.getcwd()+"/params_run.py")
     del sys.modules["inp_gen"]
@@ -312,10 +361,10 @@ for files in range(len(f_params)):
 
     # Clean directories of garbage, incuding .pyc, ~, and SPLASH .ascii files
 
-if os.path.isfile(arch_dir+"/src/radmc3d.out"):
-    os.remove(arch_dir+"/src/radmc3d.out")
+if os.path.isfile(globals.arch_dir+"/src/radmc3d.out"):
+    os.remove(globals.arch_dir+"/src/radmc3d.out")
 
-dirs = [arch_dir+"/ics/", arch_dir+"/src/", arch_dir+"/"]
+dirs = [globals.arch_dir+"/ics/", globals.arch_dir+"/src/", globals.arch_dir+"/"]
 exts = [".pyc", ".ascii"]
 for d in range(len(dirs)):
     dir = dirs[d]

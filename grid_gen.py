@@ -12,7 +12,7 @@ MCRT/RRT or diagnostic analyses.
 Module can also generate required files for MCRT and RRT in protostar and
 YSO modelling, where SPH treatment is not needed/overkill.
 
-Last Modified: 19/02/2018
+Last Modified: 21/08/2018
 
 '''
 
@@ -30,7 +30,7 @@ import random
 import matplotlib.pyplot as plt
 
 import constants as cs
-from params_run import *
+import params_run as ps
 sys.path.append(os.getcwd()+"/oct/")
 from gen_oct import construct_octree, compute_octree_geometry
 
@@ -38,20 +38,20 @@ from gen_oct import construct_octree, compute_octree_geometry
         # # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
-def translate(dat_dir, pos, rho, h, m_part, r, extras):
+def translate(globals, inp_model):
 
     # Translate SPH -> AMR density, writing outputs to RADMC-3D input files
 
-    dx = np.amax(pos) ; dy = dx ; dz = dx
-    m_part = np.array( [m_part]*len(pos[0]) )
+    dx = np.amax(inp_model.pos) ; dy = dx ; dz = dx
+    m_part = np.array( [inp_model.m_part]*len(inp_model.pos[0]) )
 
     def stop(x, y, z, dx, dy, dz, px, py, pz, sigma):
         return len(px) <= partmax
 
     o = construct_octree(0.0, 0.0, 0.0, dx, dy, dz, \
-       np.array(pos[0]), np.array(pos[1]), np.array(pos[2]), \
-       np.array(h), np.array(m_part), \
-       n_levels = levelmax, stopping_criterion=stop)
+     np.array(inp_model.pos[0]), np.array(inp_model.pos[1]), \
+     np.array(inp_model.pos[2]), np.array(inp_model.h), np.array(m_part), \
+     n_levels = levelmax, stopping_criterion=stop)
 
     n_amr = len(o.refined) ; n_leaf = len(np.where(o.refined == False)[0])
 
@@ -60,7 +60,7 @@ def translate(dat_dir, pos, rho, h, m_part, r, extras):
     density = np.array(o["density"][0].array)
 
     print("Writing to amr_grid.inp\n")
-    f = open(dat_dir+"/amr_grid.inp","w")
+    f = open(globals.dat_dir+"/amr_grid.inp","w")
     f.write("1\n")
     f.write("1\n")
     f.write("0\n")
@@ -80,7 +80,7 @@ def translate(dat_dir, pos, rho, h, m_part, r, extras):
 
     print("Writing to loc_grid.inp\n")
     rgrid = np.sqrt( xcen**2. + ycen**2. + zcen**2. )
-    f = open(dat_dir+"/loc_grid.dat","w")
+    f = open(globals.dat_dir+"/loc_grid.dat","w")
     for i in range(n_amr):
         if o.refined[i]:
             continue
@@ -90,7 +90,7 @@ def translate(dat_dir, pos, rho, h, m_part, r, extras):
     f.close()
 
     print("Writing to dust_density.inp\n")
-    f = open(dat_dir+"/dust_density.inp","w")
+    f = open(globals.dat_dir+"/dust_density.inp","w")
     f.write("1\n")
     f.write("{0}\n".format(n_leaf) )
     f.write("1\n")
@@ -105,11 +105,11 @@ def translate(dat_dir, pos, rho, h, m_part, r, extras):
 
 ### ------------------------------------------------------------------------ ###
 
-def protostar(dat_dir, wav_bins, llambda, t_star, r_star):
+def protostar(path, rt_params):
 
     # Generate dummy RADMC-3D input files
 
-    f = open(dat_dir+"/amr_grid.inp","w")
+    f = open(path+"/amr_grid.inp","w")
     f.write("1\n")
     f.write("0\n")
     f.write("0\n")
@@ -121,21 +121,21 @@ def protostar(dat_dir, wav_bins, llambda, t_star, r_star):
     f.write("-1.496e13 1.496e13\n")
     f.close()
 
-    f = open(dat_dir+"/dust_density.inp","w")
+    f = open(path+"/dust_density.inp","w")
     f.write("1\n")
     f.write("1\n")
     f.write("1\n")
     f.write("0\n")
     f.close()
 
-    f = open(dat_dir+"/dust_temperature.dat","w")
+    f = open(path+"/dust_temperature.dat","w")
     f.write("1\n")
     f.write("1\n")
     f.write("1\n")
     f.write("0\n")
     f.close()
 
-    f = open(dat_dir+"/dustopac.inp","w")
+    f = open(path+"/dustopac.inp","w")
     f.write("2 \n")
     f.write("1 \n")
     f.write("==========================================================\n")
@@ -145,61 +145,61 @@ def protostar(dat_dir, wav_bins, llambda, t_star, r_star):
     f.write("------------------------------------------------------\n")
     f.close()
 
-    f = open(dat_dir+"/dustkappa_dum.inp","w")
+    f = open(path+"/dustkappa_dum.inp","w")
     f.write("2\n")
-    f.write("{0}\n".format(wav_bins) )
-    for i in range(wav_bins):
-        f.write("{0} 1 1\n".format(llambda[i]) )
+    f.write("{0}\n".format(rt_params.n_wavs) )
+    for i in range(rt_params.n_wavs):
+        f.write("{0} 1 1\n".format(rt_params.wavs[i]) )
     f.close()
 
-    f = open(dat_dir+"/stars.inp","w")
+    f = open(path+"/stars.inp","w")
     f.write("2 \n")
-    f.write("1 {0}\n".format(wav_bins) )
-    f.write("{0} 1.998e+33 0. 0. 0.\n".format(r_star * cs.cm_per_rsol) )
-    for i in range(wav_bins):
-        f.write("{0}\n".format(llambda[i]) )
-    f.write("-{0}\n".format(t_star) )
+    f.write("1 {0}\n".format(rt_params.n_wavs) )
+    f.write("{0} 1.998e+33 0. 0. 0.\n".format(rt_params.r_star*cs.cm_per_rsol) )
+    for i in range(rt_params.n_wavs):
+        f.write("{0}\n".format(rt_params.wavs[i]) )
+    f.write("-{0}\n".format(rt_params.t_star) )
     f.close()
 
     return
 
 ### ------------------------------------------------------------------------ ###
 
-def yso(dat_dir):
-
-    global r_out_d, r_in_e, r_out_e, m_d, m_e, \
-      CAVITY_rho, CAVITY_theta, CAVITY_beta, CAVITY_ralpha
+def yso(globals, rt_model):
 
     print("Creating YSO disc/envelope\n")
 
-    pos = [ [ [0.0] for i in range(2*nsph)] for i in range(3) ]
+    pos = [ [ [0.0] for i in range(2*ps.nsph)] for i in range(3) ]
 
     # Determine inner/outer limits for disc/envelope
 
-    r_0_d = ( (r_star / 2.0) * (t_star / t_dust)**3.00 ) * cs.cm_per_rsol
-    r_in_d = r_0_d ; r_out_d *= cs.cm_per_au
+    r_0_d = ( (rt_model.r_star / 2.0) * (rt_model.t_star / ps.t_dust)**3.00 ) \
+     * cs.cm_per_rsol
+    r_in_d = r_0_d
+    r_out_d = ps.r_out_d * cs.cm_per_au
     w_in_d = (r_in_d**2.0) / (r_out_d**2.0)
     w_out_d = (r_out_d**2.0) / (r_0_d**2.0)
 
-    r_in_e *= cs.cm_per_au ; r_out_e *= cs.cm_per_au
-    exp = 1.0 - (float(p_e) / 3.0)
+    r_in_e = ps.r_in_e * cs.cm_per_au
+    r_out_e = ps.r_out_e * cs.cm_per_au
+    exp = 1.0 - (float(ps.p_e) / 3.0)
     w_e = r_out_e**(3.0) / r_in_e**(3.0)
 
-    for i in range(nsph):
+    for i in range(ps.nsph):
 
     # Generate particle locations for disc
 
         Rs1 = random.random() ; Rs2 = random.random() ; Rs3 = random.random()
-        w = ( (1.0 + w_in_d)**(1.0 - (p_d / 2.0) ) + \
-           Rs1 * ( (1.0 + w_out_d)**(1.0 - (p_d / 2.0) ) - \
-           (1.0 + w_in_d)**(1.0 - (p_d / 2.0) ) )) ** ( 2.0 / (2.0 - p_d) )- 1.0
+        w = ( (1.0 + w_in_d)**(1.0 - (ps.p_d / 2.0) ) + \
+         Rs1 * ( (1.0 + w_out_d)**(1.0 - (ps.p_d / 2.0) ) - \
+         (1.0 + w_in_d)**(1.0 - (ps.p_d / 2.0) ) ))**( 2.0 / (2.0 - ps.p_d) )-1.0
 
         r = r_0_d * w**(0.5)
-        phi= 2.0 * math.pi * Rs2
+        phi = 2.0 * math.pi * Rs2
 
         pos[0][i] = r * math.cos( phi )
         pos[1][i] = r * math.sin( phi )
-        z_0 = 3.0 * alpha_d * r
+        z_0 = 3.0 * ps.alpha_d * r
         pos[2][i] = z_0 * (2.0 / math.pi) * math.asin( 2.0 * Rs3 - 1.0)
 
     # Generate particle locations for envelope (with new random seeds)
@@ -234,7 +234,7 @@ def yso(dat_dir):
     # Write to loc_grid.dat and amr_grid.inp with grid octree information
 
     print("Writing to amr_grid.inp\n")
-    f = open(dat_dir+"/amr_grid.inp","w")
+    f = open(globals.dat_dir+"/amr_grid.inp","w")
     f.write("1\n")
     f.write("1\n")
     f.write("0\n")
@@ -254,7 +254,7 @@ def yso(dat_dir):
 
     print("Writing to loc_grid.inp\n")
     rgrid = np.sqrt( xcen**2. + ycen**2. + zcen**2. )
-    f = open(dat_dir+"/loc_grid.dat","w")
+    f = open(globals.dat_dir+"/loc_grid.dat","w")
     for i in range(n_amr):
         if o.refined[i]:
             continue
@@ -266,22 +266,22 @@ def yso(dat_dir):
     # Allocate density contributions at each location, writing to file
 
     print("Writing to dust_density.inp\n")
-    f = open(dat_dir+"/dust_density.inp","w")
+    f = open(globals.dat_dir+"/dust_density.inp","w")
     f.write("1\n")
     f.write("{0}\n".format( n_leaf ) )
     f.write("1\n")
 
     # Disc scaling properties
 
-    m_d *= (cs.g_per_msol * cs.dust_to_gas)
+    m_d = ps.m_d * (cs.g_per_msol * cs.dust_to_gas)
 
-    SD_0_d = ( (m_d * (2.0-p_d)) / (2.0 * math.pi*r_0_d**(2.0) ) ) * \
-      ( ((r_0_d**2.0 + r_out_d**2.0)/ r_0_d**2.0)**(p_d/2.0) - \
-      ((r_0_d**2.0 + r_in_d**2.0)/ r_0_d**2.0)**(p_d/2.0) )**(-1.0)
+    SD_0_d = ( (m_d * (2.0-ps.p_d)) / (2.0 * math.pi*r_0_d**(2.0) ) ) * \
+     ( ((r_0_d**2.0 + r_out_d**2.0)/ r_0_d**2.0)**(ps.p_d/2.0) - \
+     ((r_0_d**2.0 + r_in_d**2.0)/ r_0_d**2.0)**(ps.p_d/2.0) )**(-1.0)
 
     # Envelope scaling properties
 
-    m_e *= (cs.g_per_msol * cs.dust_to_gas)
+    m_e =  ps.m_e * (cs.g_per_msol * cs.dust_to_gas)
     rho_0_e = ( (m_e  * (3.0 * exp) ) / (4.0 * math.pi * r_in_e**(3.0)) ) * \
       (w_e**(exp) - 1.0)**(-1.0)
 #    rho_0_e = ( m_e / (4.0 * math.pi * r_0_d**2.0) ) * \
@@ -289,9 +289,9 @@ def yso(dat_dir):
 
     # Cavity scaling properties
 
-    CAVITY_rho = CAVITY_rho * cs.g_per_H2 * cs.dust_to_gas
-    CAVITY_theta = CAVITY_theta * (math.pi / 180.0)
-    CAVITY_alpha = ((CAVITY_ralpha*cs.cm_per_au)**(1.0 - CAVITY_beta)) / \
+    CAVITY_rho = ps.CAVITY_rho * cs.g_per_H2 * cs.dust_to_gas
+    CAVITY_theta = ps.CAVITY_theta * (math.pi / 180.0)
+    CAVITY_alpha = ((ps.CAVITY_ralpha*cs.cm_per_au)**(1.0 - ps.CAVITY_beta)) / \
       math.tan(CAVITY_theta)
 
     for i in range(len(xcen)):
@@ -301,19 +301,19 @@ def yso(dat_dir):
 
     # Envelope contributions
 
-            rho += rho_0_e * (r_in_e / rgrid[i])**p_e
+            rho += rho_0_e * (r_in_e / rgrid[i])**ps.p_e
 
     # Disc contribution
 
             if ( rgrid_xy < r_out_d ) and \
-              ( abs(zcen[i]) / rgrid_xy  <  3.0 * alpha_d ):
+              ( abs(zcen[i]) / rgrid_xy  <  3.0 * ps.alpha_d ):
 
                 rho_0_d = (math.pi * SD_0_d) / \
-                  (4.0 * (3.0 * alpha_d * rgrid_xy) ) * \
-                  (r_0_d / (rgrid[i] + r_0_d) )**(p_d / 2.0)
+                  (4.0 * (3.0 * ps.alpha_d * rgrid_xy) ) * \
+                  (r_0_d / (rgrid[i] + r_0_d) )**(ps.p_d / 2.0)
 
                 rho += rho_0_d * (rgrid_xy / r_0_d)**(-2.0) * \
-                  math.exp((-1.0/2.0) * (zcen[i]/(alpha_d * rgrid_xy) )**2.0 )
+                  math.exp((-1.0/2.0) * (zcen[i]/(ps.alpha_d * rgrid_xy) )**2.0 )
 
     # Cavity (if CAVITY_rho != 0.0)
 

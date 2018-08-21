@@ -8,7 +8,7 @@ Module to generate most .inp files as required for RADMC-3D, including:
        - stars.inp (with/without seeded planet)
        - radmc3d.inp
 
-Last Modified: 29/06/2018
+Last Modified: 21/08/2018
 
 '''
 
@@ -24,30 +24,28 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
 import constants as cs
-from params_run import *
+import params_run as ps
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
-def gen(arch_dir, dat_dir, plt_dir):
+def gen(globals, rt_params):
 
-    global t_star, r_star, l_star, t_planet, r_planet, isrf_mult
-
-    wav_bins = 200
+    rt_params.n_wavs = 200
 
     # First, write wavelength_micron.inp file, computing wavelengths
     # (in microns) dependent on user defined range
 
-    llambda = []
-    f1 = open("{0}/wavelength_micron.inp".format(dat_dir), "w")
-    f1.write("{0}\n".format(wav_bins))
-    d0 = math.log(wav_lims[0],10.0) ; d1 = math.log(wav_lims[1],10.0)
-    dinc = (d1 - d0) / float(wav_bins)
+    f1 = open("{0}/wavelength_micron.inp".format(globals.dat_dir), "w")
+    f1.write("{0}\n".format(rt_params.n_wavs))
+    d0 = math.log(ps.wav_lims[0],10.0)
+    d1 = math.log(ps.wav_lims[1],10.0)
+    dinc = (d1 - d0) / float(rt_params.n_wavs)
 
-    for i in range(wav_bins):
-        llambda.append( 10.0**( d0 + dinc*float(i) ) )
-        f1.write("{0}\n".format(llambda[i]) )
+    for i in range(rt_params.n_wavs):
+        rt_params.wavs.append( 10.0**( d0 + dinc*float(i) ) )
+        f1.write("{0}\n".format( rt_params.wavs[i]) )
     f1.close()
 
 ### ------------------------------------------------------------------------ ###
@@ -56,58 +54,75 @@ def gen(arch_dir, dat_dir, plt_dir):
     # Mathis+ (1983) data with required unit conversion user defined wavelength
     # grid as required. If not used, remove from directory
 
-    if not incl_isrf and os.path.isfile(dat_dir+"/external_source.inp"):
-        os.remove(dat_dir+"/external_source.inp")
+    if not ps.incl_isrf and \
+     os.path.isfile(globals.dat_dir+"/external_source.inp"):
 
-    elif incl_isrf:
+        os.remove(globals.dat_dir+"/external_source.inp")
 
-        f1 = open(dat_dir+"/external_source.inp","w")
-        wav, fnu = np.loadtxt(arch_dir+"/isrf/andre03.txt", unpack=True)
+    elif ps.incl_isrf:
 
-        for i in range(len(fnu)):
-            if ((wav[i] * 1000.0) >= 500):
+        f1 = open(globals.dat_dir+"/external_source.inp","w")
+        isrf_wavs, isrf_fnu = \
+         np.loadtxt(globals.arch_dir+"/isrf/andre03.txt", unpack=True)
+
+        for i in range(len(isrf_fnu)):
+
+            if ((isrf_wavs[i] * 1000.0) >= 500):
                 continue
             else:
-                fnu[i] *= isrf_mult
+                isrf_fnu[i] *= ps.isrf_mult
 
     # Interpolate onto specified wavelength grid, write to file and plot if
     # called. Flux assumed to be zero if ISRF wavelength out of wav_lims range
 
-        fnu_int = interp1d(wav,fnu,kind="linear")
+        isrf_fnu_int = interp1d(isrf_wavs, isrf_fnu, kind="linear")
         f1.write("2\n")
-        f1.write("{0}\n".format(wav_bins) )
-        for i in range(wav_bins):
-            f1.write("{0}\n".format(llambda[i]) )
-        for i in range(wav_bins):
-            if (llambda[i] < min(wav)) or (llambda[i] > max(wav)):
+        f1.write("{0}\n".format(rt_params.n_wavs) )
+        for i in range(rt_params.n_wavs):
+            f1.write("{0}\n".format(rt_params.wavs[i]) )
+        for i in range(rt_params.n_wavs):
+            if (rt_params.wavs[i] < min(isrf_wavs)) or \
+             (rt_params.wavs[i] > max(isrf_wavs)):
                 f1.write("0\n")
             else:
-                f1.write("{0}\n".format(fnu_int(llambda[i])) )
+                f1.write("{0}\n".format(isrf_fnu_int(rt_params.wavs[i])) )
         f1.close()
 
-        lam_flam_isrf = []
-        for w in range(len(wav)):
-            lam_flam_isrf.append( fnu[w] * \
-              ( cs.c_cgs / (wav[w] * cs.cm_per_micron)  ) )
-#            lam_flam_isrf.append(fnu[w] / (cs.Jy_cgs * 1.0e6))
-        if plot_isrf:
+        if ps.plot_isrf:
+
+            Jy = False
+
+            isrf_lam_flam = []
+            for w in range(len(isrf_wavs)):
+
+                if Jy:
+                    lam_flam_isrf.append(isrf_fnu[w] / (cs.Jy_cgs * 1.0e6))
+                else:
+                    lam_flam_isrf.append( isrf_fnu[w] * \
+                     ( cs.c_cgs / (isrf_wavs[w] * cs.cm_per_micron)  ) )
+
             fig = plt.figure(1)
             ax1 = plt.subplot(111)
-            plt.plot(wav, lam_flam_isrf, color = "k")
+            plt.plot(isrf_wavs, isrf_lam_flam, color = "k")
             plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = cs.fontsize, \
                labelpad=0.5)
             plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
-            ax1.set_xlim(7.0e-2,max(wav))
+            ax1.set_xlim(7.0e-2,max(isrf_wavs))
             ax1.set_yscale("log")
-            ax1.set_ylim( 3.e-5, max(lam_flam_isrf)*1.2)
-#            ax1.set_ylim( 1.0e-2, 1.0e3)
-            plt.ylabel(r"$\lambda I_\lambda$ (erg cm$^{-2}$ s$^{-1}$ sr$^{-1}$)", \
-              fontsize = cs.fontsize)
-#            plt.ylabel(r"$I_\nu$ (MJy sr$^{-1}$)", fontsize = cs.fontsize)
+
+            if Jy:
+                ax1.set_ylim( 1.0e-2, 1.0e3)
+                plt.ylabel(r"$I_\nu$ (MJy sr$^{-1}$)", fontsize = cs.fontsize)
+            else:
+                ax1.set_ylim( 3.e-5, max(isrf_lam_flam)*1.2)
+                plt.ylabel(r"$\lambda I_\lambda$ (erg cm$^{-2}$ s$^{-1}$ sr$^{-1}$)", \
+                  fontsize = cs.fontsize)
+
             plt.xticks(fontsize = cs.fontsize)
             plt.yticks(fontsize = cs.fontsize)
             plt.tight_layout()
-            plt.savefig(plt_dir+"/ISRF."+plt_form, format=str(plt_form))
+            plt.savefig(globals.plt_dir+"/ISRF."+ps.plt_form, \
+             format=str(ps.plt_form))
             plt.clf()
 
 ### ------------------------------------------------------------------------ ###
@@ -116,21 +131,21 @@ def gen(arch_dir, dat_dir, plt_dir):
     # rdisc.1, read in sink properties vs. time, and identify protostellar
     # radius and temperature for snapshot time
 
-    if f_star and sim_inp:
+    if ps.f_star and ps.sim_inp:
 
-        frdisc = open(sim_r1file,"r")
+        frdisc = open(ps.sim_r1file,"r")
         for line in frdisc:
             line = line.strip()
             column = line.split()
             if ( str(column[13]).split(".")[2] == \
-              sim_cfile.split("/")[-1].split(".")[2]):
+              ps.sim_cfile.split("/")[-1].split(".")[2]):
                 snaptime = float(column[0]) / 1000.0
                 break
             else:
                 continue
         frdisc.close()
 
-        fsink = open(sim_sfile,"r")
+        fsink = open(ps.sim_sfile,"r")
         s_time = [] ; s_radius = [] ; s_lum = [] ; s_temp = [] ; s_macc = []
 
         for line in fsink:
@@ -142,110 +157,120 @@ def gen(arch_dir, dat_dir, plt_dir):
             s_temp.append(float(column[21]))
             s_macc.append(float(column[25]))
             if ( round(float(column[1]) * 1000.0, 3) == round(snaptime, 3) ):
-                r_star = float(column[19]) * cs.rsol_per_pc
-                t_star = round(float(column[21]))
-                l_star = float(column[20])
+                ps.r_star = float(column[19]) * cs.rsol_per_pc
+                ps.t_star = round(float(column[21]))
+                ps.l_star = float(column[20])
             else:
                 continue
         fsink.close()
 
-    f = open(dat_dir+"/stars.inp","w")
+    # Set rt_params instances to (potentially) modified luminosity source variables
+
+    rt_params.t_star = ps.t_star ; rt_params.r_star = ps.r_star
+    rt_params.l_star = ps.l_star
+    rt_params.t_planet = ps.t_planet ; rt_params.r_planet = ps.r_planet
+
+    # Write to stars.inp file, with relevant parameters for included source
+
+    f = open(globals.dat_dir+"/stars.inp","w")
     f.write("2 \n")
-    if (run_tag == "EC53"):
-        print("Luminosity of central protostar is: {0} L_sol".format(l_star))
+    if (ps.run_tag == "EC53"):
+        print("Luminosity of central protostar is: {0} L_sol".format(rt_params.l_star))
     else:
         print("Luminosity of central protostar is: "+ \
-         str(round((r_star)**2.0 * (t_star / 5780.)**4.0, 3) )+" L_sol\n")
+         str(round((rt_params.r_star)**2.0 * \
+          (rt_params.t_star / 5780.)**4.0, 3) )+" L_sol\n")
 
-    if incl_planet:
+    if ps.incl_planet:
 
-        if not incl_star:
+        if not ps.incl_star:
             print("Stars must be included if planets are, exiting...\n")
             exit()
 
         print("Luminosity of seeded planet is: "+ \
-        str(round((r_planet)**2.0 * (t_planet / 5780.)**4.0, 3) )+" L_sol\n")
+        str(round((rt_params.r_planet)**2.0 * \
+         (rt_params.t_planet / 5780.)**4.0, 3) )+" L_sol\n")
 
-        f.write("2 {0}\n".format(wav_bins) )
-        f.write("{0} 1.998e+33 0. 0. 0.\n".format(r_star * cs.cm_per_rsol) )
-        f.write("{0} 1.998+30 {1} {2} {3}\n".format(r_planet * cs.cm_per_rsol, \
-          loc_planet[0] * cs.cm_per_au, loc_planet[1] * cs.cm_per_au, \
-          loc_planet[2] * cs.cm_per_au,))
-        for i in range(wav_bins):
-            f.write("{0}\n".format(llambda[i]))
-        f.write("-{0}\n".format(t_star))
-        f.write("-{0}\n".format(t_planet))
+        f.write("2 {0}\n".format(rt_params.n_wavs) )
+        f.write("{0} 1.998e+33 0. 0. 0.\n".format(rt_params.r_star * cs.cm_per_rsol) )
+        f.write("{0} 1.998+30 {1} {2} {3}\n".format(rt_params.r_planet * cs.cm_per_rsol, \
+          ps.loc_planet[0] * cs.cm_per_au, ps.loc_planet[1] * cs.cm_per_au, \
+          ps.loc_planet[2] * cs.cm_per_au,))
+        for i in range(rt_params.n_wavs):
+            f.write("{0}\n".format(rt_params.wavs[i]))
+        f.write("-{0}\n".format(rt_params.t_star))
+        f.write("-{0}\n".format(rt_params.t_planet))
         f.close()
     else:
-        f.write("1 {0}\n".format(wav_bins) )
-        f.write("{0} 1.998e+33 0. 0. 0.\n".format(r_star * cs.cm_per_rsol) )
-        for i in range(wav_bins):
-            f.write("{0}\n".format(llambda[i]))
-        f.write("-{0}\n".format(int(t_star)))
+        f.write("1 {0}\n".format(rt_params.n_wavs) )
+        f.write("{0} 1.998e+33 0. 0. 0.\n".format(rt_params.r_star * cs.cm_per_rsol) )
+        for i in range(rt_params.n_wavs):
+            f.write("{0}\n".format(rt_params.wavs[i]))
+        f.write("-{0}\n".format(int(rt_params.t_star)))
         f.close()
 
     # From protostellar temperatures (and isrf multipliers where relevant),
     # make data pointers
 
-    if incl_isrf and (isrf_mult <= 0.0):
+    if ps.incl_isrf and (ps.isrf_mult <= 0.0):
         print "\nVariable isrf_mult must be a positive float. Setting to 1.0\n"
 
-    if (isrf_mult < 1.0):
-        isrf_ext = str(isrf_mult).split(".")[0]+str(isrf_mult).split(".")[1]
+    if (ps.isrf_mult < 1.0):
+        isrf_ext = str(ps.isrf_mult).split(".")[0]+str(ps.isrf_mult).split(".")[1]
         isrf_ext += "ISRF"
-    elif (isrf_mult == 1.0):
+    elif (ps.isrf_mult == 1.0):
         isrf_ext = "ISRF"
-    elif (isrf_mult > 1.0):
-        isrf_ext = str(int(isrf_mult))+"ISRF"
+    elif (ps.isrf_mult > 1.0):
+        isrf_ext = str(int(ps.isrf_mult))+"ISRF"
 
-    if incl_star and incl_isrf:
+    if ps.incl_star and ps.incl_isrf:
 
-        if (run_tag == "EC53"):
-            plt_ext = str(int(l_star))+"L_"+isrf_ext
-            tdat_ext = plt_ext+".dat"
-            pdat_ext = plt_ext+".out"
+        if (ps.run_tag == "EC53"):
+            globals.plt_ext = str(int(ps.l_star))+"L_"+isrf_ext
+            globals.tdat_ext = globals.plt_ext+".dat"
+            globals.pdat_ext = globals.plt_ext+".out"
         else:
-            plt_ext = str(int(t_star))+"_"+isrf_ext
-            tdat_ext = plt_ext+".dat"
-            pdat_ext = plt_ext+".out"
+            globals.plt_ext = str(int(ps.t_star))+"_"+isrf_ext
+            globals.tdat_ext = globals.plt_ext+".dat"
+            globals.pdat_ext = globals.plt_ext+".out"
 
-    elif incl_star and not incl_isrf:
+    elif ps.incl_star and not ps.incl_isrf:
 
-        if (run_tag == "EC53"):
-            plt_ext = str(int(l_star))+"L"
-            tdat_ext = plt_ext+".dat"
-            pdat_ext = plt_ext+".out"
+        if (ps.run_tag == "EC53"):
+            globals.plt_ext = str(int(ps.l_star))+"L"
+            globals.tdat_ext = globals.plt_ext+".dat"
+            globals.pdat_ext = globals.plt_ext+".out"
 
         else:
-            plt_ext = str(int(t_star))
-            tdat_ext = plt_ext+".dat"
-            pdat_ext = plt_ext+".out"
+            globals.plt_ext = str(int(ps.t_star))
+            globals.tdat_ext = globals.plt_ext+".dat"
+            globals.pdat_ext = globals.plt_ext+".out"
 
-    elif not incl_star and incl_isrf:
-        plt_ext = "ISRF"
-        tdat_ext = plt_ext+".dat"
-        pdat_ext = plt_ext+".out"
+    elif not ps.incl_star and ps.incl_isrf:
+        globals.plt_ext = "ISRF"
+        globals.tdat_ext = globals.plt_ext+".dat"
+        globals.pdat_ext = globals.plt_ext+".out"
 
-    if not incl_star:
-        if not os.path.isdir(dat_dir+"/bin"):
-            os.makedirs(dat_dir+"/bin")
-        shutil.move(dat_dir+"/stars.inp", dat_dir+"/bin/stars.inp")
+    if not ps.incl_star:
+        if not os.path.isdir(globals.dat_dir+"/bin"):
+            os.makedirs(globals.dat_dir+"/bin")
+        shutil.move(globals.dat_dir+"/stars.inp", globals.dat_dir+"/bin/stars.inp")
 
 ### ------------------------------------------------------------------------ ###
 
-    f = open(dat_dir+"/radmc3d.inp","w")
-    f.write("nphot = {0}\n".format(nphot) )
+    f = open(globals.dat_dir+"/radmc3d.inp","w")
+    f.write("nphot = {0}\n".format(ps.nphot) )
     f.write("lines_mode = 1\n")
-    if mod_rw:
+    if ps.mod_rw:
         f.write("modified_random_walk = 1 \n")
     f.write("tgas_eq_tdust = 1 \n")
     f.write("debug_write_stats = 1\n")
-    if (threads > 0):
-        f.write("setthreads = {0}\n".format(threads))
-    if incl_star:
+    if (ps.threads > 0):
+        f.write("setthreads = {0}\n".format(ps.threads))
+    if ps.incl_star:
         f.write("scattering_mode_max = 1\n")
         f.write("camera_incl_stars = 1\n")
-    elif not incl_star:
+    elif not ps.incl_star:
         f.write("scattering_mode_max = 0\n")
         f.write("camera_incl_stars = 0\n")
     f.close()
@@ -255,46 +280,42 @@ def gen(arch_dir, dat_dir, plt_dir):
     # Check if protostellar template exists in /protostar/ directory. If not,
     # generate SED with MCRT and RRT over dummy input files.
 
-    f_pstar = arch_dir+"/protostar/spectrum"+str(int(t_star))+".out"
-    path_pstar = dat_dir+"/protostar"
+    f_pstar = globals.arch_dir+"/protostar/spectrum"+str(int(ps.t_star))+".out"
+    path_pstar = globals.dat_dir+"/protostar"
     if not (os.path.isfile(f_pstar)):
         import grid_gen
         os.makedirs(path_pstar)
         os.chdir(path_pstar+"/")
-        shutil.copy2(dat_dir+"/radmc3d.inp", path_pstar+"/")
-        shutil.copy2(dat_dir+"/wavelength_micron.inp", path_pstar+"/")
+        shutil.copy2(globals.dat_dir+"/radmc3d.inp", path_pstar+"/")
+        shutil.copy2(globals.dat_dir+"/wavelength_micron.inp", path_pstar+"/")
 
-        grid_gen.protostar(path_pstar, wav_bins, llambda, t_star, r_star)
+        grid_gen.protostar(path_pstar, rt_params)
 
-        os.system("{0}radmc3d sed incl 0".format(exec_loc) )
+        os.system("{0}radmc3d sed incl 0".format(ps.exec_loc) )
         shutil.copy2(path_pstar+"/spectrum.out", \
-          arch_dir+"/protostar/spectrum"+str(int(t_star))+".out")
-        os.chdir(arch_dir+"/src/")
+          globals.arch_dir+"/protostar/spectrum"+str(int(rt_params.t_star))+".out")
+        os.chdir(globals.arch_dir+"/src/")
         os.system("rm -rf {0}/".format(path_pstar))
 
     # Now do the same, but for any planets.
 
-    if incl_planet:
+    if ps.incl_planet:
 
-        f_pstar = arch_dir+"/protostar/spectrum"+str(int(t_planet))+".out"
+        f_pstar = globals.arch_dir+"/protostar/spectrum"+str(int(rt_params.t_planet))+".out"
         if not (os.path.isfile(f_pstar)):
             import grid_gen
             os.makedirs(path_pstar)
             os.chdir(path_pstar+"/")
-            shutil.copy2(dat_dir+"/radmc3d.inp", path_pstar+"/")
-            shutil.copy2(dat_dir+"/wavelength_micron.inp", path_pstar+"/")
+            shutil.copy2(globals.dat_dir+"/radmc3d.inp", path_pstar+"/")
+            shutil.copy2(globals.dat_dir+"/wavelength_micron.inp", path_pstar+"/")
 
-            grid_gen.protostar(path_pstar, wav_bins, llambda, \
-              t_planet, r_planet)
+            grid_gen.protostar(path_pstar, rt_params.n_wavs, rt_params.wavs, \
+              rt_params.t_planet, rt_params.r_planet)
 
-            os.system("{0}radmc3d sed incl 0".format(exec_loc) )
+            os.system("{0}radmc3d sed incl 0".format(ps.exec_loc) )
             shutil.copy2(path_pstar+"/spectrum.out", \
-              arch_dir+"/protostar/spectrum"+int(t_planet)+".out")
-            os.chdir(arch_dir+"/src/")
+              globals.arch_dir+"/protostar/spectrum"+int(rt_params.t_planet)+".out")
+            os.chdir(globals.arch_dir+"/src/")
             os.system("rm -rf {0}/".format(path_pstar))
 
-    else:
-        t_planet = 0 ; r_planet = 0
-
-    return plt_ext, tdat_ext, pdat_ext, t_star, r_star, t_planet, \
-      r_planet, llambda, wav_bins
+    return globals, rt_params
