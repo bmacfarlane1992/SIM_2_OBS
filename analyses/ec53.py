@@ -13,7 +13,7 @@ protostellar temperature defined (in K) as XXXX in spectrumXXXX.out files.
 Data with ISRF of Andre et al. (2003) denoted by _ISRF tag.
 
 Author: Benjamin MacFarlane
-Date: 14/02/2018
+Date: 20/08/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -31,7 +31,16 @@ import math
 import random
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+
+    # Append location of constants and functions modules into pythonpath
+
+import sys
+sys.path.insert(0,"./../")
+
+    # Import local modules
+
 import constants as cs
+import functions as fs
 #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - VARIABLE DEFINITIONS - - - # # #
@@ -91,68 +100,35 @@ lam_flam = [[] for i in range(4)]
 for i in range(len(names)):
 
     fsed = dat_dir + "/spectrum"+names[i]+"_"+str(inclin)+"i.out"
-    print fsed
-    f = open(fsed,"r")
-    for j in range(0, 3):
-        header = f.readline()
-    for lines in f:
-        lines = lines.strip() ; columns = lines.split()
-        wav[i].append(float(columns[0]))
-        flam[i].append(float(columns[1]) * \
-           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-        lam_flam[i].append( float(columns[1]) * \
-          ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / dist**(2.0))
-    f.close()
+
+    wav[i], flam[i], lam_flam[i], nu, fnu, nu_fnu = fs.SED_read(fsed)
+    for j in range(len(lam_flam[i])):
+        lam_flam[i][j] /= dist**(2.0)
 
 
 ### ------------------------------------------------------------------------ ###
 
-
-    flam_int = np.array(flam[i])
-    lam_flam_int = np.array(lam_flam[i]) * dist**2.0
-    wav_int = np.array(wav[i]) * cs.cm_per_micron
-    flam
-
-    n = int(1e5)
-    def Trapezoidal(g, a, b, n):
-        h = (b - a) / float(n)
-        s = 0.5 * (g(a) + g(b))
-        for i in range(1,n,1):
-            s = s + g(a + i*h)
-        return h*s
-
     # Model bolometric luminosity
 
-    flux_int = interp1d(wav_int, flam_int, kind="cubic")
-    a = min(wav_int) ; b = max(wav_int)
-    def g(lam):
-        return flux_int(lam)
-    result1 = Trapezoidal(g, a, b, n)
-    L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs
+    L_bol = fs.Lbol_calc(nu, fnu)
 
-    # Model sub-mm luminosity
+    # Model bolometric temperature
 
-    a = 350.e-4 ; b = max(wav_int)
-    def g(lam):
-        return flux_int(lam)
-    result2 = Trapezoidal(g, a, b, n)
-    L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result2) / cs.Lsol_cgs
+    T_bol = fs.Tbol_calc(nu, fnu, nu_fnu)
 
-    energy_int = interp1d(wav_int, lam_flam_int, kind = "cubic")
-    def g(lam):
-        return energy_int(lam)
-    result3 = Trapezoidal(g, a, b, n)
+    # Model sub-mm to bolometric luminosity ratio
 
-    T_bol = 1.25e-11 * ( cs.c_cgs / (result3 / result1) )
+    L_ratio = fs.L_ratio_calc(nu, fnu)
 
-    print("\nFor {0} model: \n".format(names[i]))
-    ratio_submm_bol = (L_submm / L_bol) * 100.0
+    # Print results to terminal
+
+    print("\nFor theta = {0} deg., {1} model: \n".format(best_cavity, \
+     leg_names[i]))
+
     print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
-    print("Sub-mm luminosity is: {0} L_sol\n".format(L_submm))
     print("Ratio of Bolometric and sub-mm "+ \
-      "luminosity is {0} %\n".format(ratio_submm_bol) )
+      "luminosity is {0} %\n".format(L_ratio) )
     print("Bolometric temperature is: {0} K\n".format(T_bol))
-
 
 
 ### ------------------------------------------------------------------------ ###
@@ -326,17 +302,8 @@ sdat_ext = "6L_"+str(inclin)+"i.out"
 
     # Now run tau test
 
-wav = [] ; lam_flam = []
-f = open(dat_dir+"/spectrum"+sdat_ext)
-for j in range(3):
-    header = f.readline()
-for lines in f:
-    lines = lines.strip() ; columns = lines.split()
-    wav.append(float(columns[0]))
-    lam_flam.append(  float(columns[1]) * \
-      ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) )
-f.close()
-wav = np.array(wav) ; lam_flam = np.array(lam_flam)
+file = open(dat_dir+"/spectrum"+sdat_ext)
+wav, flam, lam_flam, nu, fnu, nu_fnu = fs.SED_read(file)
 
 wav_probe = np.average(wav, weights = lam_flam)
 
@@ -388,4 +355,4 @@ L = ( (max_r - r_tau) * cs.m_per_au )**2.0 * (temp_ave**4.0)
 L /= ( (cs.m_per_rsol)**2.0 * (5780.0)**4.0 )
 
 
-print('''\n Luminosity of i={0} deg. model is {1} L_sol\n'''.format(inclin, L))
+print("\n Luminosity of i={0} deg. model is {1} L_sol\n".format(inclin, L))

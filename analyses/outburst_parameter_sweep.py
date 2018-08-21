@@ -23,7 +23,7 @@ computed (numerical integration) and plotted, as comparison to observational
 equivalents.
 
 Author: Benjamin MacFarlane
-Date: 06/06/2018
+Date: 20/08/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -33,16 +33,25 @@ Contact: bmacfarlane@uclan.ac.uk
         # # # - - - MODULE IMPORTS - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 #
-# Standard Python modules
+    # Standard Python modules
+
 import os
 import numpy as np
 import math
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from scipy.interpolate import interp1d
-# User modules
+
+    # Append location of constants and functions modules into pythonpath
+
+import sys
+sys.path.insert(0,"./../")
+
+    # Import local modules
+
 import constants as cs
-from functions import adjustFigAspect
+import functions as fs
+
 #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - VARIABLE DEFINITIONS - - - # # #
@@ -78,7 +87,8 @@ plt_form = "png"        # Str.: Output plot format ["png","eps"]
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 #
 cwd = os.getcwd()
-arch_dir = cwd = "/../.."
+print cwd
+arch_dir = cwd + "/../.."
 dat_dir_o = arch_dir + "/runs/OUTBURST/1686"
 dat_dir_q = arch_dir + "/runs/OUTBURST/1611"
 plt_dir = arch_dir + "/runs/OUTBURST/plots_analysis"
@@ -107,17 +117,6 @@ T_bol = [ [ [ [ [ [] for i in range(len(inclins)) ]
 #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #
-
-    # Set trapezium rule for numerical integration
-
-n = int(1e5)
-def Trapezoidal(g, a, b, n):
-    h = (b - a) / float(n)
-    s = 0.5 * (g(a) + g(b))
-    for i in range(1,n,1):
-        s = s + g(a + i*h)
-    return h*s
-#
     # First, read cavity-only data (even if theta = 0)
 #
 for cut in range(len(r_cores)):
@@ -132,40 +131,20 @@ for cut in range(len(r_cores)):
 #
             for c in range(len(cavity_theta)):
 #
-                wavs_o = [] ; nu_o = [] ; fnu_o = [] ; flam_o = []
                 f_sed_o = dat_dir_o+"/"+r_cores[cut]+"/POST_"+ \
                  str(lums[s])+"L_cavity"+ str(cavity_theta[c])+ \
                  "/dat/spectrum"+str(int(temps[s]))+ \
                  "_ISRF_"+str(inclins[i])+"i.out"
-                f_sed_o = open(f_sed_o,"r")
-                for l in range(3):
-                    trash = f_sed_o.readline()
-                for lines in f_sed_o:
-                    lines = lines.strip() ; columns = lines.split()
-                    wavs_o.append(float(columns[0]))
-                    nu_o.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-                    fnu_o.append(float(columns[1]))
-                    flam_o.append( float(columns[1]) * \
-                     ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-                f_sed_o.close()
-                fnu_o = fnu_o[::-1] ; nu_o = nu_o[::-1]
+
+                wavs_o, flam_o, lam_flam_o, \
+                 nu_o, fnu_o, nu_fnu_o = fs.SED_read(f_sed_o)
 #
-                wavs_q = [] ; nu_q = [] ; fnu_q = [] ; flam_q = []
                 f_sed_q = dat_dir_q+"/"+r_cores[cut]+ \
                  "/POST_cavity"+str(cavity_theta[c])+ \
                  "/dat/spectrum3974_ISRF_"+str(inclins[i])+"i.out"
-                f_sed_q = open(f_sed_q,"r")
-                for l in range(3):
-                    trash = f_sed_q.readline()
-                for lines in f_sed_q:
-                    lines = lines.strip() ; columns = lines.split()
-                    wavs_q.append(float(columns[0]))
-                    nu_q.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-                    fnu_q.append(float(columns[1]))
-                    flam_q.append( float(columns[1]) * \
-                     ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-                f_sed_q.close()
-                fnu_q = fnu_q[::-1] ; nu_q = nu_q[::-1]
+#
+                wavs_q, flam_q, lam_flam_q, \
+                 nu_q, fnu_q, nu_fnu_q = fs.SED_read(f_sed_q)
 #
                 flam_int_o = interp1d(wavs_o,flam_o, kind="linear")
                 flam_int_q = interp1d(wavs_q,flam_q, kind="linear")
@@ -177,50 +156,24 @@ for cut in range(len(r_cores)):
     # Model bolometric luminosity/temperature - quiescent
 
                 if (s == 0):
-
-                    lam_flam_q = [] ; nu_fnu_q = []
-                    for w in range(len(wavs_q)):
-                        wavs_q[w] *= cs.cm_per_micron
-                        lam_flam_q.append(flam_q[w] * wavs_q[w])
-                        nu_fnu_q.append(fnu_q[w] * nu_q[w])
-
-                    flux_int = interp1d(nu_q, fnu_q, kind="cubic")
-                    a = min(nu_q) ; b = max(nu_q)
-                    def g(lam):
-                        return flux_int(lam)
-                    result1 = Trapezoidal(g, a, b, n)
-                    L_bol[cut][0][c][0][i].append( (4.0 * math.pi * \
-                     (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs )
-
-                    energy_int = interp1d(nu_q, nu_fnu_q, kind = "cubic")
-                    def g(lam):
-                        return energy_int(lam)
-                    result2 = Trapezoidal(g, a, b, n)
-
-                    T_bol[cut][0][c][0][i].append( 1.25e-11 * (result2 / result1) )
+#
+                    wavs_q *= cs.cm_per_micron
+#
+                    L_tmp = fs.Lbol_calc(nu_q, fnu_q)
+                    L_bol[cut][0][c][0][i].append( L_tmp )
+#
+                    T_tmp = fs.Tbol_calc(nu_q, fnu_q, nu_fnu_q)
+                    T_bol[cut][0][c][0][i].append( T_tmp )
 
     # Model bolometric luminosity/temperature - outbursting
 
-                lam_flam_o = [] ; nu_fnu_o = []
-                for w in range(len(wavs_o)):
-                    wavs_o[w] *= cs.cm_per_micron
-                    lam_flam_o.append(flam_o[w] * wavs_o[w])
-                    nu_fnu_o.append(fnu_o[w] * nu_o[w])
-
-                flux_int = interp1d(nu_o, fnu_o, kind="cubic")
-                a = min(nu_o) ; b = max(nu_o)
-                def g(lam):
-                    return flux_int(lam)
-                result1 = Trapezoidal(g, a, b, n)
-                L_bol[cut][1 + s][c][0][i].append( (4.0 * math.pi * \
-                 (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs )
-
-                energy_int = interp1d(nu_o, nu_fnu_o, kind = "cubic")
-                def g(lam):
-                    return energy_int(lam)
-                result2 = Trapezoidal(g, a, b, n)
-
-                T_bol[cut][1 + s][c][0][i].append( 1.25e-11 * (result2 / result1) )
+                wavs_o *= cs.cm_per_micron
+#
+                L_tmp = fs.Lbol_calc(nu_o, fnu_o)
+                L_bol[cut][1 + s][c][0][i].append( L_tmp )
+#
+                T_tmp = fs.Tbol_calc(nu_o, fnu_o, nu_fnu_o)
+                T_bol[cut][1 + s][c][0][i].append( T_tmp )
 #
     # Now models with rescaled component mass - disc
 #
@@ -235,42 +188,22 @@ for cut in range(len(r_cores)):
                 for r in range(len(mult_tags)):
 
 #
-                    wavs_o = [] ; nu_o = [] ; fnu_o = [] ; flam_o = []
                     f_sed_o = dat_dir_o+"/"+r_cores[cut]+ \
                      "/POST_"+str(lums[s])+"L_cavity"+ \
                      str(cavity_theta[c])+"_disc"+str(mult_tags[r])+ \
                      "/dat/spectrum"+str(int(temps[s]))+"_ISRF_"+ \
                      str(inclins[i])+"i.out"
-                    f_sed_o = open(f_sed_o,"r")
-                    for l in range(3):
-                        trash = f_sed_o.readline()
-                    for lines in f_sed_o:
-                        lines = lines.strip() ; columns = lines.split()
-                        wavs_o.append(float(columns[0]))
-                        nu_o.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-                        fnu_o.append(float(columns[1]))
-                        flam_o.append( float(columns[1]) * \
-                         ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-                    f_sed_o.close()
-                    fnu_o = fnu_o[::-1] ; nu_o = nu_o[::-1]
 #
-                    wavs_q = [] ; nu_q = [] ; fnu_q = [] ; flam_q = []
+                    wavs_o, flam_o, lam_flam_o, \
+                     nu_o, fnu_o, nu_fnu_o = fs.SED_read(f_sed_o)
+#
                     f_sed_q = dat_dir_q+"/"+r_cores[cut]+ \
                      "/POST_cavity"+str(cavity_theta[c])+ \
                      "_disc"+str(mult_tags[r])+"/dat/spectrum3974_ISRF_"+ \
                      str(inclins[i])+"i.out"
-                    f_sed_q = open(f_sed_q,"r")
-                    for l in range(3):
-                        trash = f_sed_q.readline()
-                    for lines in f_sed_q:
-                        lines = lines.strip() ; columns = lines.split()
-                        wavs_q.append(float(columns[0]))
-                        nu_q.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-                        fnu_q.append(float(columns[1]))
-                        flam_q.append( float(columns[1]) * \
-                         ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-                    f_sed_q.close()
-                    fnu_q = fnu_q[::-1] ; nu_q = nu_q[::-1]
+#
+                    wavs_q, flam_q, lam_flam_q, \
+                     nu_q, fnu_q, nu_fnu_q = fs.SED_read(f_sed_q)
 #
                     flam_int_o = interp1d(wavs_o,flam_o, kind="linear")
                     flam_int_q = interp1d(wavs_q,flam_q, kind="linear")
@@ -282,50 +215,24 @@ for cut in range(len(r_cores)):
     # Model bolometric luminosity/temperature - quiescent
 
                     if (s == 0):
-
-                        lam_flam_q = [] ; nu_fnu_q = []
-                        for w in range(len(wavs_q)):
-                            wavs_q[w] *= cs.cm_per_micron
-                            lam_flam_q.append(flam_q[w] * wavs_q[w])
-                            nu_fnu_q.append(fnu_q[w] * nu_q[w])
-
-                        flux_int = interp1d(nu_q, fnu_q, kind="cubic")
-                        a = min(nu_q) ; b = max(nu_q)
-                        def g(lam):
-                            return flux_int(lam)
-                        result1 = Trapezoidal(g, a, b, n)
-                        L_bol[cut][0][c][1 + r][i].append( (4.0 * math.pi * \
-                         (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs )
-
-                        energy_int = interp1d(nu_q, nu_fnu_q, kind = "cubic")
-                        def g(lam):
-                            return energy_int(lam)
-                        result2 = Trapezoidal(g, a, b, n)
-
-                        T_bol[cut][0][c][1 + r][i].append( 1.25e-11 * (result2 / result1) )
+#
+                        wavs_q *= cs.cm_per_micron
+#
+                        L_tmp = fs.Lbol_calc(nu_q, fnu_q)
+                        L_bol[cut][0][c][1 + r][i].append( L_tmp )
+#
+                        T_tmp = fs.Tbol_calc(nu_q, fnu_q, nu_fnu_q)
+                        T_bol[cut][0][c][1 + r][i].append( T_tmp )
 
     # Model bolometric luminosity/temperature - outbursting
 
-                    lam_flam_o = [] ; nu_fnu_o = []
-                    for w in range(len(wavs_o)):
-                        wavs_o[w] *= cs.cm_per_micron
-                        lam_flam_o.append(flam_o[w] * wavs_o[w])
-                        nu_fnu_o.append(fnu_o[w] * nu_o[w])
-
-                    flux_int = interp1d(nu_o, fnu_o, kind="cubic")
-                    a = min(nu_o) ; b = max(nu_o)
-                    def g(lam):
-                        return flux_int(lam)
-                    result1 = Trapezoidal(g, a, b, n)
-                    L_bol[cut][1 + s][c][1 + r][i].append( (4.0 * math.pi * \
-                     (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs )
-
-                    energy_int = interp1d(nu_o, nu_fnu_o, kind = "cubic")
-                    def g(lam):
-                        return energy_int(lam)
-                    result2 = Trapezoidal(g, a, b, n)
-
-                    T_bol[cut][1 + s][c][1 + r][i].append( 1.25e-11 * (result2 / result1) )
+                    wavs_o *= cs.cm_per_micron
+#
+                    L_tmp = fs.Lbol_calc(nu_o, fnu_o)
+                    L_bol[cut][1 + s][c][1 + r][i].append( L_tmp )
+#
+                    T_tmp = fs.Tbol_calc(nu_o, fnu_o, nu_fnu_o)
+                    T_bol[cut][1 + s][c][1 + r][i].append( T_tmp )
 #
     # Now models with rescaled component mass - envelope
 
@@ -338,42 +245,22 @@ for cut in range(len(r_cores)):
                 for r in range(len(mult_tags)):
 
 #
-                    wavs_o = [] ; nu_o = [] ; fnu_o = [] ; flam_o = []
                     f_sed_o = dat_dir_o+"/"+r_cores[cut]+ \
                      "/POST_"+str(lums[s])+"L_cavity"+ \
                      str(cavity_theta[c])+"_env"+str(mult_tags[r])+ \
                      "/dat/spectrum"+str(int(temps[s]))+"_ISRF_"+ \
                      str(inclins[i])+"i.out"
-                    f_sed_o = open(f_sed_o,"r")
-                    for l in range(3):
-                        trash = f_sed_o.readline()
-                    for lines in f_sed_o:
-                        lines = lines.strip() ; columns = lines.split()
-                        wavs_o.append(float(columns[0]))
-                        nu_o.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-                        fnu_o.append(float(columns[1]))
-                        flam_o.append( float(columns[1]) * \
-                         ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-                    f_sed_o.close()
-                    fnu_o = fnu_o[::-1] ; nu_o = nu_o[::-1]
 #
-                    wavs_q = [] ; nu_q = [] ; fnu_q = [] ; flam_q = []
+                    wavs_o, flam_o, lam_flam_o, \
+                     nu_o, fnu_o, nu_fnu_o = fs.SED_read(f_sed_o)
+#
                     f_sed_q = dat_dir_q+"/"+r_cores[cut]+ \
                      "/POST_cavity"+str(cavity_theta[c])+ \
                      "_env"+str(mult_tags[r])+"/dat/spectrum3974_ISRF_"+ \
                      str(inclins[i])+"i.out"
-                    f_sed_q = open(f_sed_q,"r")
-                    for l in range(3):
-                        trash = f_sed_q.readline()
-                    for lines in f_sed_q:
-                        lines = lines.strip() ; columns = lines.split()
-                        wavs_q.append(float(columns[0]))
-                        nu_q.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-                        fnu_q.append(float(columns[1]))
-                        flam_q.append( float(columns[1]) * \
-                         ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-                    f_sed_q.close()
-                    fnu_q = fnu_q[::-1] ; nu_q = nu_q[::-1]
+#
+                    wavs_q, flam_q, lam_flam_q, \
+                     nu_q, fnu_q, nu_fnu_q = fs.SED_read(f_sed_q)
 #
                     flam_int_o = interp1d(wavs_o,flam_o, kind="linear")
                     flam_int_q = interp1d(wavs_q,flam_q, kind="linear")
@@ -385,50 +272,24 @@ for cut in range(len(r_cores)):
     # Model bolometric luminosity/temperature - quiescent
 
                     if (s == 0):
-
-                        lam_flam_q = [] ; nu_fnu_q = []
-                        for w in range(len(wavs_q)):
-                            wavs_q[w] *= cs.cm_per_micron
-                            lam_flam_q.append(flam_q[w] * wavs_q[w])
-                            nu_fnu_q.append(fnu_q[w] * nu_q[w])
-
-                        flux_int = interp1d(nu_q, fnu_q, kind="cubic")
-                        a = min(nu_q) ; b = max(nu_q)
-                        def g(lam):
-                            return flux_int(lam)
-                        result1 = Trapezoidal(g, a, b, n)
-                        L_bol[cut][0][c][1 + len(mult_tags) + r][i].append( (4.0 * math.pi * \
-                         (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs )
-
-                        energy_int = interp1d(nu_q, nu_fnu_q, kind = "cubic")
-                        def g(lam):
-                            return energy_int(lam)
-                        result2 = Trapezoidal(g, a, b, n)
-
-                        T_bol[cut][0][c][1 + len(mult_tags) + r][i].append( 1.25e-11 * (result2 / result1) )
-
+#
+                        wavs_q *= cs.cm_per_micron
+#
+                        L_tmp = fs.Lbol_calc(nu_q, fnu_q)
+                        L_bol[cut][0][c][1 + len(mult_tags) + r][i].append( L_tmp )
+#
+                        T_tmp = fs.Tbol_calc(nu_q, fnu_q, nu_fnu_q)
+                        T_bol[cut][0][c][1 + len(mult_tags) + r][i].append( T_tmp )
+#
     # Model bolometric luminosity/temperature - outbursting
-
-                    lam_flam_o = [] ; nu_fnu_o = []
-                    for w in range(len(wavs_o)):
-                        wavs_o[w] *= cs.cm_per_micron
-                        lam_flam_o.append(flam_o[w] * wavs_o[w])
-                        nu_fnu_o.append(fnu_o[w] * nu_o[w])
-
-                    flux_int = interp1d(nu_o, fnu_o, kind="cubic")
-                    a = min(nu_o) ; b = max(nu_o)
-                    def g(lam):
-                        return flux_int(lam)
-                    result1 = Trapezoidal(g, a, b, n)
-                    L_bol[cut][1 + s][c][1 + len(mult_tags) + r][i].append( (4.0 * math.pi * \
-                     (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs )
-
-                    energy_int = interp1d(nu_o, nu_fnu_o, kind = "cubic")
-                    def g(lam):
-                        return energy_int(lam)
-                    result2 = Trapezoidal(g, a, b, n)
-
-                    T_bol[cut][1 + s][c][1 + len(mult_tags) + r][i].append( 1.25e-11 * (result2 / result1) )
+#
+                    wavs_o *= cs.cm_per_micron
+#
+                    L_tmp = fs.Lbol_calc(nu_o, fnu_o)
+                    L_bol[cut][1 + s][c][1 + len(mult_tags) + r][i].append( L_tmp )
+#
+                    T_tmp = fs.Tbol_calc(nu_o, fnu_o, nu_fnu_o)
+                    T_bol[cut][1 + s][c][1 + len(mult_tags) + r][i].append( T_tmp )
 #
     # Finally, read in models with simulation protostellar luminosities
 #
@@ -447,44 +308,20 @@ for cut in range(len(r_cores)):
         for t in range(len(sim_tags[0])):
             for i in range(len(inclins)):
 #
-                wavs = [] ; nu = [] ; fnu = [] ; flam = []
                 f_sed = dat_dir_o+"/../"+sim_tags[e][t]+"/POST/dat/spectrum"+ \
                  sim_temps[e][t]+"_ISRF_"+str(inclins[i])+"i.out"
-                f_sed = open(f_sed,"r")
-                for l in range(3):
-                    trash = f_sed.readline()
-                for lines in f_sed:
-                    lines = lines.strip() ; columns = lines.split()
-                    wavs.append(float(columns[0]))
-                    nu.append(cs.c_cgs / (float(columns[0]) * cs.cm_per_micron) )
-                    fnu.append(float(columns[1]))
-                    flam.append( float(columns[1]) * \
-                     ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-                f_sed.close()
-                fnu = fnu[::-1] ; nu = nu[::-1]
+#
+                wavs, flam, lam_flam, nu, fnu, nu_fnu = fs.SED_read(f_sed)
 
     # Model bolometric luminosity/temperature
+#
+                wavs *= cs.cm_per_micron
+#
+                L_tmp = fs.Lbol_calc(nu, fnu)
+                sim_L_bol[e][t][i].append( L_tmp )
 
-                lam_flam = [] ; nu_fnu = []
-                for w in range(len(wavs)):
-                    wavs[w] *= cs.cm_per_micron
-                    lam_flam.append(flam[w] * wavs[w])
-                    nu_fnu.append(fnu[w] * nu[w])
-
-                flux_int = interp1d(nu, fnu, kind="cubic")
-                a = min(nu) ; b = max(nu)
-                def g(lam):
-                    return flux_int(lam)
-                result1 = Trapezoidal(g, a, b, n)
-                sim_L_bol[e][t][i].append( (4.0 * math.pi * \
-                 (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs )
-
-                energy_int = interp1d(nu, nu_fnu, kind = "cubic")
-                def g(lam):
-                    return energy_int(lam)
-                result2 = Trapezoidal(g, a, b, n)
-
-                sim_T_bol[e][t][i].append( 1.25e-11 * (result2 / result1) )
+                T_tmp = fs.Tbol_calc(nu, fnu, nu_fnu)
+                sim_T_bol[e][t][i].append( T_tmp )
 #
     print "\nPlotting\n"
 

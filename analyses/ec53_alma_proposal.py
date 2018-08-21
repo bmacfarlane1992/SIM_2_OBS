@@ -13,7 +13,7 @@ protostellar temperature defined (in K) as XXXX in spectrumXXXX.out files.
 Data with ISRF of Andre et al. (2003) denoted by _ISRF tag.
 
 Author: Benjamin MacFarlane
-Date: 14/02/2018
+Date: 20/08/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -30,7 +30,16 @@ import math
 import random
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+
+    # Append location of constants and functions modules into pythonpath
+
+import sys
+sys.path.insert(0,"./../")
+
+    # Import local modules
+
 import constants as cs
+import functions as fs
 #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - VARIABLE DEFINITIONS - - - # # #
@@ -90,25 +99,17 @@ for i in range(len(restricted)):
 #
 ### ------------------------------------------------------------------------ ###
 
-#
-    # Read in SED data
-#
+    # Read SED data
+
         for t in range(len(temps)):
             fsed = dat_dir + "/spectrum"+names[t]+"_0i.out"
-#
-            f = open(fsed,"r")
-            for lines in range(3):
-                header = f.readline()
-            for lines in f:
-                lines = lines.strip() ; columns = lines.split()
-                wav[t][i][j].append(float(columns[0]))
-                flam[t][i][j].append( float(columns[1]) * \
-                  ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / \
-                  dist**(2.0))
-            f.close()
+
+            wav[t][i][j], flam[t][i][j], \
+             lam_flam, nu, fnu, nu_fnu = fs.SED_read(fsed)
+
+            flam[t][i][j] /= dist**(2.0)
 
 ### ------------------------------------------------------------------------ ###
-
 
 #   Singular cut method analysis:
 #

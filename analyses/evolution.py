@@ -7,7 +7,7 @@ Program to read in SED data for EVOLUTION models, and compare between
     - Multiple snapshots, for inclination limits
 
 Author: Benjamin MacFarlane
-Date: 19/01/2018
+Date: 20/08/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -22,8 +22,16 @@ import os
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-# User modules
-from constants import *
+
+    # Append location of constants and functions modules into pythonpath
+
+import sys
+sys.path.insert(0,"./../")
+
+    # Import local modules
+
+import constants as cs
+import functions as fs
 #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - VARIABLE DEFINITIONS - - - # # #
@@ -67,23 +75,17 @@ for i in range(len(snaps)):
     fname = run_dir + "/" + snaps[i] + "/dat/stars.inp"
     f = open(fname, 'r')
     trash = f.readline() ; trash = f.readline()
-    r_star.append(float(f.readline().split(' ')[0]) * rsol_per_cm)
+    r_star.append(float(f.readline().split(' ')[0]) * cs.rsol_per_cm)
     t_star.append(-float(f.readlines()[-1]))
     f.close()
 #
     fname = run_dir + "/" + snaps[i] + "/dat/spectrum"+str(int(t_star[i]))+".out"
-    f = open(fname, 'r')
-    for l in range(3):
-        trash = f.readline()
-    for lines in f:
-        lines = lines.strip() ; columns = lines.split()
-        wavs_s[i].append(float(columns[0]))
-        flam_s[i].append( float(columns[1]) * \
-           ( c_cgs / (float(columns[0])*cm_per_micron) ) )
-    f.close()
+
+    wavs_s[i], flam_s[i], lam_flam, nu, fnu, nu_fnu = fs.SED_read(fname)
+
     if sed_norm:
-        fnorm = ( (r_star[i] * cm_per_rsol)**2. * sigma_sb_cgs * \
-           (t_star[i])**4. ) / (cm_per_pc)**2.
+        fnorm = ( (r_star[i] * cs.cm_per_rsol)**2. * cs.sigma_sb_cgs * \
+           (t_star[i])**4. ) / (cs.cm_per_pc)**2.
         for j in range(len(flam_s[i])):
             flam_s[i][j] /= fnorm
     else:
@@ -97,21 +99,13 @@ for i in range(len(snaps)):
 #
     for j in range(len(inclins)):
 #
-        fname = run_dir + "/" + snaps[i] + "/dat/spectrum_"+str(inclins[j])+"i.out"
-        f = open(fname, 'r')
-        for l in range(3):
-            trash = f.readline()
-        for lines in f:
-            lines = lines.strip() ; columns = lines.split()
-            if (j == 0):
-                wavs[i].append(float(columns[0]))
-            flam[i][j].append( float(columns[1]) * \
-               ( c_cgs / (float(columns[0])*cm_per_micron) ) )
-        f.close()
-#
+        fname = run_dir+"/"+snaps[i]+"/dat/spectrum_"+str(inclins[j])+"i.out"
+
+        wavs[i], flam[i][j], lam_flam, nu, fnu, nu_fnu = fs.SED_read(fname)
+
         if sed_norm:
-            fnorm = ( (r_star[i] * cm_per_rsol)**2. * sigma_sb_cgs * \
-               (t_star[i])**4. ) / (cm_per_pc)**2.
+            fnorm = ( (r_star[i] * cs.cm_per_rsol)**2. * cs.sigma_sb_cgs * \
+               (t_star[i])**4. ) / (cs.cm_per_pc)**2.
             for k in range(len(flam[i][j])):
                 flam[i][j][k] /= fnorm
         else:

@@ -14,7 +14,7 @@ all bar outbursting case comparison, SED is overplotted with c2d Spitzer,
 Herschel and JCMT data of Dunham+ (2015) and Yoo+ (2017)
 
 Author: Benjamin MacFarlane
-Date: 14/02/2018
+Date: 20/08/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -32,7 +32,16 @@ import math
 import random
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+
+    # Append location of constants and functions modules into pythonpath
+
+import sys
+sys.path.insert(0,"./../")
+
+    # Import local modules
+
 import constants as cs
+import functions as fs
 #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         # # # - - - VARIABLE DEFINITIONS - - - # # #
@@ -56,14 +65,6 @@ plt_form = "png"    # Str.: Format of output plots ["png","eps"]
 cwd = os.getcwd()
 run_dir = cwd + "/../../runs/EC53"
 plt_dir = run_dir + "/plots_analysis"
-#
-n = int(1e5)
-def Trapezoidal(g, a, b, n):
-    h = (b - a) / float(n)
-    s = 0.5 * (g(a) + g(b))
-    for i in range(1,n,1):
-        s = s + g(a + i*h)
-    return h*s
 #
     # Before data read, store EC 53 photometry data
 #
@@ -98,58 +99,37 @@ linewidth = [1,1,1,1]
 
 for i in range(4):
 
+    # Read SED data
+
     fsed = dat_dir+"/spectrum6L_ISRF_"+str(inclin[i])+"i.out"
 
-    f = open(fsed,"r")
-    for j in range(0, 3):
-        header = f.readline()
-    for lines in f:
-        lines = lines.strip() ; columns = lines.split()
-        wav[i].append(float(columns[0]))
-        flam[i].append(float(columns[1]) * \
-           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-        lam_flam[i].append( float(columns[1]) * \
-          ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / dist**(2.0))
-    f.close()
+    wav[i], flam[i], lam_flam[i], nu, fnu, nu_fnu = fs.SED_read(fsed)
+
+    for j in range(len(lam_flam[i])):
+        lam_flam[i][j] /= dist**(2.0)
 
     if bolometrics:
 
-        flam_int = np.array(flam[i])
-        lam_flam_int = np.array(lam_flam[i]) * dist**2.0
-        wav_int = np.array(wav[i]) * cs.cm_per_micron
-
         # Model bolometric luminosity
 
-        flux_int = interp1d(wav_int, flam_int, kind="cubic")
-        a = min(wav_int) ; b = max(wav_int)
-        def g(lam):
-            return flux_int(lam)
-        result1 = Trapezoidal(g, a, b, n)
-        L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs
+        L_bol = fs.Lbol_calc(nu, fnu)
 
-        # Model sub-mm luminosity
+        # Model bolometric temperature
 
-        a = 350.e-4 ; b = max(wav_int)
-        def g(lam):
-            return flux_int(lam)
-        result2 = Trapezoidal(g, a, b, n)
-        L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result2) / cs.Lsol_cgs
+        T_bol = fs.Tbol_calc(nu,fnu, nu_fnu)
 
-        energy_int = interp1d(wav_int, lam_flam_int, kind = "cubic")
-        def g(lam):
-            return energy_int(lam)
-        result3 = Trapezoidal(g, a, b, n)
+        # Model sub-mm to bolometric luminosity ratio
 
-        T_bol = 1.25e-11 * ( cs.c_cgs / (result3 / result1) )
+        L_ratio = fs.L_ratio_calc(nu, fnu)
+
+        # Print results to terminal
 
         print("\nFor theta = {0} deg., {1} model: \n".format(best_cavity, \
          leg_names[i]))
 
-        ratio_submm_bol = (L_submm / L_bol) * 100.0
         print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
-        print("Sub-mm luminosity is: {0} L_sol\n".format(L_submm))
         print("Ratio of Bolometric and sub-mm "+ \
-          "luminosity is {0} %\n".format(ratio_submm_bol) )
+          "luminosity is {0} %\n".format(L_ratio) )
         print("Bolometric temperature is: {0} K\n".format(T_bol))
 
 fig = plt.figure(1)
@@ -191,56 +171,38 @@ linewidth = [1,1,1]
 
 for i in range(3):
 
+    # Read SED data
+
     fsed = run_dir + "/dat_" + r_core[i] + "_cavity"+str(best_cavity)+ \
      "/spectrum6L_ISRF_"+str(inclin)+"i.out"
-    f = open(fsed,"r")
-    for j in range(0, 3):
-        header = f.readline()
-    for lines in f:
-        lines = lines.strip() ; columns = lines.split()
-        wav[i].append(float(columns[0]))
-        flam[i].append(float(columns[1]) * \
-           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-        lam_flam[i].append( float(columns[1]) * \
-          ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / dist**(2.0))
-    f.close()
+
+    wav[i], flam[i], lam_flam[i], nu, fnu, nu_fnu = fs.SED_read(fsed)
+
+    for j in range(len(lam_flam[i])):
+        lam_flam[i][j] /= dist**(2.0)
 
     if bolometrics:
 
-        flam_int = np.array(flam[i])
-        lam_flam_int = np.array(lam_flam[i]) * dist**2.0
-        wav_int = np.array(wav[i]) * cs.cm_per_micron
-
         # Model bolometric luminosity
 
-        flux_int = interp1d(wav_int, flam_int, kind="cubic")
-        a = min(wav_int) ; b = max(wav_int)
-        def g(lam):
-            return flux_int(lam)
-        result1 = Trapezoidal(g, a, b, n)
-        L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs
+        L_bol = fs.Lbol_calc(nu, fnu)
 
-        # Model sub-mm luminosity
+        # Model bolometric temperature
 
-        a = 350.e-4 ; b = max(wav_int)
-        def g(lam):
-            return flux_int(lam)
-        result2 = Trapezoidal(g, a, b, n)
-        L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result2) / cs.Lsol_cgs
+        T_bol = fs.Tbol_calc(nu,fnu, nu_fnu)
 
-        energy_int = interp1d(wav_int, lam_flam_int, kind = "cubic")
-        def g(lam):
-            return energy_int(lam)
-        result3 = Trapezoidal(g, a, b, n)
+        # Model sub-mm to bolometric luminosity ratio
 
-        T_bol = 1.25e-11 * ( cs.c_cgs / (result3 / result1) )
+        L_ratio = fs.L_ratio_calc(nu, fnu)
 
-        print("\nFor {0} model: \n".format(leg_names[i]))
-        ratio_submm_bol = (L_submm / L_bol) * 100.0
+        # Print results to terminal
+
+        print("\nFor theta = {0} deg., {1} model: \n".format(best_cavity, \
+         leg_names[i]))
+
         print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
-        print("Sub-mm luminosity is: {0} L_sol\n".format(L_submm))
         print("Ratio of Bolometric and sub-mm "+ \
-          "luminosity is {0} %\n".format(ratio_submm_bol) )
+          "luminosity is {0} %\n".format(L_ratio) )
         print("Bolometric temperature is: {0} K\n".format(T_bol))
 
 fig = plt.figure(1)
@@ -288,63 +250,42 @@ lam_flam = [[] for i in range(len(lums)+1)]
 
 for i in range(len(lums)+1):
 
+    # Read SED data
+
     if (i == 0):
         fsed = dat_dir + "/spectrum6L_ISRF_"+str(best_inclin)+"i.out"
     else:
         fsed = dat_dir + "/spectrum"+str(lums[i-1])+"L_ISRF_"+ \
          str(best_inclin)+"i.out"
 
-    f = open(fsed,"r")
-    for j in range(0, 3):
-        header = f.readline()
-    for lines in f:
-        lines = lines.strip() ; columns = lines.split()
-        wav[i].append(float(columns[0]))
-        flam[i].append(float(columns[1]) * \
-           ( cs.c_cgs / (float(columns[0]) * cs.cm_per_micron)**2.0 ) )
-        lam_flam[i].append( float(columns[1]) * \
-          ( cs.c_cgs / (float(columns[0])*cs.cm_per_micron) ) / dist**(2.0))
-    f.close()
+    wav[i], flam[i], lam_flam[i], nu, fnu, nu_fnu = fs.SED_read(fsed)
 
-#
+    for j in range(len(lam_flam[i])):
+        lam_flam[i][j] /= dist**(2.0)
+
     if bolometrics:
-
-        flam_int = np.array(flam[i])
-        lam_flam_int = np.array(lam_flam[i]) * dist**2.0
-        wav_int = np.array(wav[i]) * cs.cm_per_micron
 
         # Model bolometric luminosity
 
-        flux_int = interp1d(wav_int, flam_int, kind="cubic")
-        a = min(wav_int) ; b = max(wav_int)
-        def g(lam):
-            return flux_int(lam)
-        result1 = Trapezoidal(g, a, b, n)
-        L_bol = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result1) / cs.Lsol_cgs
+        L_bol = fs.Lbol_calc(nu, fnu)
 
-        # Model sub-mm luminosity
+        # Model bolometric temperature
 
-        a = 350.e-4 ; b = max(wav_int)
-        def g(lam):
-            return flux_int(lam)
-        result2 = Trapezoidal(g, a, b, n)
-        L_submm = (4.0 * math.pi * (cs.cm_per_pc**2.0) * result2) / cs.Lsol_cgs
+        T_bol = fs.Tbol_calc(nu,fnu, nu_fnu)
 
-        energy_int = interp1d(wav_int, lam_flam_int, kind = "cubic")
-        def g(lam):
-            return energy_int(lam)
-        result3 = Trapezoidal(g, a, b, n)
+        # Model sub-mm to bolometric luminosity ratio
 
-        T_bol = 1.25e-11 * ( cs.c_cgs / (result3 / result1) )
+        L_ratio = fs.L_ratio_calc(nu, fnu)
 
-        print("\nFor {0} model: \n".format(leg_names[i]))
-        ratio_submm_bol = (L_submm / L_bol) * 100.0
+        # Print results to terminal
+
+        print("\nFor theta = {0} deg., {1} model: \n".format(best_cavity, \
+         leg_names[i]))
+
         print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
-        print("Sub-mm luminosity is: {0} L_sol\n".format(L_submm))
         print("Ratio of Bolometric and sub-mm "+ \
-          "luminosity is {0} %\n".format(ratio_submm_bol) )
+          "luminosity is {0} %\n".format(L_ratio) )
         print("Bolometric temperature is: {0} K\n".format(T_bol))
-
 
 flam_int_q = interp1d(wav[0], flam[0])
 for i in range(len(lums)):
