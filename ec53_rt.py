@@ -34,6 +34,7 @@ and opac_gen.py modules.
 
 Last Modified: 23/05/2018
 
+
 '''
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -60,12 +61,15 @@ def gen(arch_dir, dat_dir, plt_dir):
 
     FULL_mass_scale = 5.80  # As per Enoch+ (2009) and Dunham+ (2015) ; (M_sol)
     R_env = 10000.0         # Float: Radial extent of YSO envelope (AU)
-    CAVITY_rho = 6.68e-21   # Float: Paramaters as per G. Baek 2D modelling
-    softset_cavity = False   # Bool.: Can cavity density be scaled too?
     CAVITY_beta = 1.5       # Float: Cavity profile exponent
     CAVITY_theta = 20.0     # Float: Cavity opening angle (deg.)
     CAVITY_ralpha = 10000.0 # Float: R where opening angle is achieved (AU)
 
+    flat_cavity = False     # Bool.: Is cavity density const., or fall as r^-2?
+    softset_cavity = False   # Bool.: Can cavity density be scaled too?
+
+    CAVITY_rho = 6.68e-21   # Float: Paramaters as per G. Baek 2D modelling
+    R_taper = 100.0         # Float: Radius (AU) where taper occurs, if called
 
 ### ------------------------------------------------------------------------ ###
 
@@ -170,6 +174,8 @@ def gen(arch_dir, dat_dir, plt_dir):
     llambda_opac = [[] for i in range(4)]
     kappa_abs_opac = [[] for i in range(4)]
     kappa_scat_opac = [[] for i in range(4)]
+    kappa_tot = [[] for i in range(4)]
+
     for i in range(len(opac_files)):
 
         f = open(arch_dir+"/isrf/dust_opacity_and_ISRF/dustkappa_"+ \
@@ -180,38 +186,30 @@ def gen(arch_dir, dat_dir, plt_dir):
             llambda_opac[i].append(float(columns[0]))
             kappa_abs_opac[i].append(float(columns[1]))
             kappa_scat_opac[i].append(float(columns[2]))
+            kappa_tot[i].append(float(columns[1])+float(columns[2]))
         f.close()
 
     if opac_plot:
 
+        print "here!!"
         colors = ["k","b","g","r"]
         leg_tag = ["Cavity","Envelope","Disc Midplane","Disc Atmosphere"]
         fig = plt.figure(1)
         ax1 = plt.subplot(111)
         for i in range(4):
-            plt.plot(llambda_opac[i], kappa_abs_opac[i], color = colors[i], \
+            plt.plot(llambda_opac[i], kappa_tot[i], color = colors[i], \
              linestyle = "-", label = leg_tag[i])
-            plt.plot(llambda_opac[i], kappa_scat_opac[i], color = colors[i], \
-              linestyle = "--")
         plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = cs.fontsize, \
            labelpad=0.5)
         ax1.set_xscale("log"); ax1.set_yscale("log")
-        plt.ylabel(r"Dust Opacity (cm$^{2}$ g$^{-1}$)", \
+        plt.ylabel(r"Total Dust Opacity, $\kappa_\nu$ (cm$^{2}$ g$^{-1}$)", \
           fontsize = cs.fontsize)
-        ax1.set_ylim(1.e-4, 6.e5)
-        ax1.set_xlim(7.e-2,1.e4)
+        ax1.set_ylim(1.e-2, 6.e5)
+        ax1.set_xlim(1.e-1,1.e3)
         plt.xticks(fontsize = cs.fontsize)
         plt.yticks(fontsize = cs.fontsize)
         legend1 = plt.legend(loc = "upper right", fontsize = cs.leg_fontsize)
         plt.gca().add_artist(legend1)
-
-        i1, = plt.plot([1e-99,1e-98], [1e-99,1e-98], linestyle = "-", color = "k")
-        i2, = plt.plot([1e-99,1e-98], [1e-99,1e-98], linestyle = "--", color = "k")
-        leg_add = [] ; leg_add.append([i1,i2])
-        legend2 = plt.legend( leg_add[0], \
-         [r"Absorption, $\kappa_\nu$", r"Scattering, $k_\nu$"], \
-         fontsize=cs.leg_fontsize, loc=[0.4,0.85])
-        plt.gca().add_artist(legend2)
 
         plt.tight_layout()
         plt.savefig(plt_dir+"/Opacity."+plt_form, format=str(plt_form))
@@ -326,10 +324,23 @@ def gen(arch_dir, dat_dir, plt_dir):
     for i in range(ngrid):
         zcav = CAVITY_alpha * rloc_xy[i]**(CAVITY_beta)
         if (abs(zloc[i]) > zcav):
-            if (rho[i] < CAVITY_rho):
-                f.write("{0}\n".format(rho[i]))
-            else:
-                f.write("{0}\n".format(CAVITY_rho) )
+
+    # Write different cavity densities, depending on tapering method
+
+            if flat_cavity:
+
+                if (rho[i] < CAVITY_rho):
+                    f.write("{0}\n".format(rho[i]))
+                else:
+                    f.write("{0}\n".format(CAVITY_rho) )
+
+            elif not flat_cavity:
+
+                if (rloc[i] <= R_taper):
+                    f.write("{0}\n".format(CAVITY_rho) )
+                elif (rloc[i] > R_taper):
+                    rho_tmp = CAVITY_rho * (R_taper / rloc[i])**(2.0)
+                    f.write("{0}\n".format(rho_tmp))
         else:
             f.write("0\n")
 
