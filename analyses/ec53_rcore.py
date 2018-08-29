@@ -50,6 +50,7 @@ import functions as fs
 dist = 436.0        # Float: Distance (pc) to source
 inclin = 30          # Int. Inclination being probed by SED analyses
 lums = [6, 20]
+rcore = "4e4"
 #
 plt_form = "png"    # Str.: Format of output plots ["png","eps"]
 #
@@ -72,8 +73,8 @@ leg_names = [str(lums[0])+r" L$_\odot$ (Quiescent)", \
 #
 cwd = os.getcwd()
 run_dir = cwd + "/../../runs/EC53"
-dat_dir = run_dir + "/dat_paper"
-plt_dir = run_dir + "/plots_analysis/paper"
+dat_dir = run_dir + "/dat_" + rcore
+plt_dir = run_dir + "/plots_analysis/" + rcore
 
 if not os.path.isdir(plt_dir):
     os.makedirs(plt_dir)
@@ -121,7 +122,8 @@ for i in range(len(names)):
 
     # Print results to terminal
 
-    print("\nFor theta = {0} deg., {1} model: \n".format(inclin, leg_names[i]))
+    print("\nFor theta = {0} deg., {1} model: \n".format(best_cavity, \
+     leg_names[i]))
 
     print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
     print("Ratio of Bolometric and sub-mm "+ \
@@ -143,28 +145,9 @@ ax1 = plt.subplot(111)
 for i in range(4):
     plt.plot( wav[i], lam_flam[i], label = leg_names[i], color=color[i], \
        linestyle = linestyle[i], linewidth = linewidth[i])
-#plt.errorbar(ec53_wav, ec53_fnu, yerr=ec53_err, \
-# fmt='o', mfc='k', ecolor='k', ms=5)
-ymax = max(lam_flam[3])*10. ; ymin = 8.0e-14
-plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
-plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
-ax1.set_xlim(8.e-1,2500.)
-plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
-ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-#plt.axvline(x=850.0, linestyle="dashed", color="k")
-#plt.legend(loc = "upper left", fontsize=8)
-plt.tight_layout()
-plt.savefig(plt_dir + "/SED_"+str(inclin)+"i."+plt_form, format = plt_form)
-plt.clf()
-#
-fig = plt.figure(1)
-ax1 = plt.subplot(111)
-for i in range(2):
-    plt.plot( wav[i], lam_flam[i], label = leg_names[i], color="k", \
-       linestyle = linestyle[i], linewidth = linewidth[i])
 plt.errorbar(ec53_wav, ec53_fnu, yerr=ec53_err, \
  fmt='o', mfc='k', ecolor='k', ms=5)
-ymax = 5.e-9 ; ymin = 8.0e-14
+ymax = max(lam_flam[3])*10. ; ymin = 8.0e-14
 plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
 plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
 ax1.set_xlim(8.e-1,2500.)
@@ -173,7 +156,7 @@ ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
 #plt.axvline(x=850.0, linestyle="dashed", color="k")
 plt.legend(loc = "upper left", fontsize=8)
 plt.tight_layout()
-plt.savefig(plt_dir + "/3d_sed_fiducial."+plt_form, format = plt_form)
+plt.savefig(plt_dir + "/SED_"+str(inclin)+"i."+plt_form, format = plt_form)
 plt.clf()
 #
 fig = plt.figure(1)
@@ -187,8 +170,8 @@ plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
 ax1.set_xlim(300.,1000.)
 plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
 ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-#plt.axvline(x=450.0, linestyle="dashed", color="k")
-#plt.axvline(x=850.0, linestyle="dashed", color="k")
+plt.axvline(x=450.0, linestyle="dashed", color="k")
+plt.axvline(x=850.0, linestyle="dashed", color="k")
 plt.legend(loc = "upper right", fontsize=10)
 plt.tight_layout()
 plt.savefig(plt_dir + "/SED_ZOOM._"+str(inclin)+"i."+plt_form, \
@@ -227,7 +210,7 @@ ratio850 = round( ( flam_int2(850) / flam_int1(850) ), 3)
 print("Ratio 850 micron flux is: {0}\n".format(ratio850) )
 
 ### ------------------------------------------------------------------------ ###
-'''
+
 #
     # Compare the beam-dependent flux for E1 snapshots with ISRF heating
 #
@@ -283,11 +266,8 @@ if os.path.isfile(f_beam) and os.path.isfile(f_beam_isrf):
 
     max_r = lum_rcore
 
-'''
-
 ### ------------------------------------------------------------------------ ###
 
-'''
 
     # Estimate luminosity from emissivity of tau = 1 -> domain edge
 
@@ -330,8 +310,8 @@ wav_probe = np.average(wav, weights = lam_flam)
 exec_loc = ""
 max_r = max(rloc)
 npix = 1000
-os.system(''{0}radmc3d tausurf 1 lambda {1} incl {2} \\
-    zoomau {3} {4} {3} {4} npix {5} secondorder''.format(exec_loc, \
+os.system('''{0}radmc3d tausurf 1 lambda {1} incl {2} \\
+    zoomau {3} {4} {3} {4} npix {5} secondorder'''.format(exec_loc, \
     wav_probe, inclin, - max_r, max_r, npix) )
 
     # Find average radial location from resultant tausurface_3d
@@ -376,5 +356,3 @@ L /= ( (cs.m_per_rsol)**2.0 * (5780.0)**4.0 )
 
 
 print("\n Luminosity of i={0} deg. model is {1} L_sol\n".format(inclin, L))
-
-'''

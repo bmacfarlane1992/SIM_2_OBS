@@ -157,7 +157,7 @@ def read(dat_dir, plt_ext, tdat_ext, pdat_ext):
 def radial(dat_dir, plt_dir, plt_ext, rloc, rloc_xy, nrspecies, rho, diag_rho, \
   R_DESTR, temp, diag_temp):
 
-    rloc_min = 1. ; rloc_max = 50000.
+    rloc_min = 1. ; rloc_max = 10000.
     rho_min = 1.e-23 ; rho_max = 1.e-12
     temp_min = 1.0 ; temp_max = 5000.
 

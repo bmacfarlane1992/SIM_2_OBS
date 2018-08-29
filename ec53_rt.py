@@ -60,25 +60,20 @@ def gen(arch_dir, dat_dir, plt_dir):
       CAVITY_alpha, CAVITY_ralpha, FULL_mass_scale
 
     FULL_mass_scale = 5.80  # As per Enoch+ (2009) and Dunham+ (2015) ; (M_sol)
+
+    hfact1 = 1.0            # Float: Scale height multiplier for disc midplane
+    hfact2 = 3.0            # Float: As above, for disc atmosphere
+
+    scale_yso = False       # Bool.: Is sim. extent rescaled? If no, is cut.
     R_env = 10000.0         # Float: Radial extent of YSO envelope (AU)
+
     CAVITY_beta = 1.5       # Float: Cavity profile exponent
     CAVITY_theta = 20.0     # Float: Cavity opening angle (deg.)
     CAVITY_ralpha = 10000.0 # Float: R where opening angle is achieved (AU)
+    CAVITY_rho = 1.e-17     # Float: Paramaters as per G. Baek 2D modelling
 
-    flat_cavity = False     # Bool.: Is cavity density const., or fall as r^-2?
-    softset_cavity = False   # Bool.: Can cavity density be scaled too?
-
-    CAVITY_rho = 6.68e-21   # Float: Paramaters as per G. Baek 2D modelling
+    flat_cavity = False     # Bool.: Is cavity density constant? (If no, taper)
     R_taper = 100.0         # Float: Radius (AU) where taper occurs, if called
-
-### ------------------------------------------------------------------------ ###
-
-
-    opac_files = ["kmhnew_extrap_dust","oh5_dust","ww04_dust", \
-     "www003_extrap_dust"]
-
-    hfact1 = 1.0    # Scale height multiplier for disc midplane restriction
-    hfact2 = 3.0    # As above, for disc atmosphere
 
 
 ### ------------------------------------------------------------------------ ###
@@ -91,57 +86,58 @@ def gen(arch_dir, dat_dir, plt_dir):
 
     f = dat_dir+"/wavelength_micron.inp"
     f = open(f,"r")
-    llambda = []
-    wav_bins = int(f.readline())
-    for i in range(wav_bins):
-        llambda.append(float(f.readline()))
+    wavs = []
+    n_wavs = int(f.readline())
+    for i in range(n_wavs):
+        wavs.append(float(f.readline()))
     f.close()
 
 
 ### ------------------------------------------------------------------------ ###
 
 
-    # Transfer ISRF data to dat_dir and apply relevant flux rescaling,
-    # or delete from dat_dir if run doesn't include ISRF
+    # Transfer ISRF data, apply relevant flux rescaling, and plot if called for.
+    # Delete from dat_dir if run doesn't include ISRF
 
     if incl_isrf:
         shutil.copy2(arch_dir+ \
           "/isrf/dust_opacity_and_ISRF/external_source.inp", dat_dir)
 
-        wav = [] ; fnu = []
+        isrf_wavs = [] ; isrf_fnu = []
         f = open(dat_dir+"/external_source.inp","r")
         trash = f.readline()
-        nwav = int(f.readline())
-        for i in range(nwav):
-            wav.append(float(f.readline()))
-        for i in range(nwav):
-            fnu.append(float(f.readline()))
+        isrf_n_wavs = int(f.readline())
+        for i in range(isrf_n_wavs):
+            isrf_wavs.append(float(f.readline()))
+        for i in range(isrf_n_wavs):
+            isrf_fnu.append(float(f.readline()))
         f.close()
 
-        for i in range(len(fnu)):
-            if ((wav[i] * 1000.0) >= 500):
+        for i in range(len(isrf_fnu)):
+            if ((isrf_wavs[i] * 1000.0) >= 500):
                 continue
             else:
-                fnu[i] *= isrf_mult
+                isrf_fnu[i] *= isrf_mult
 
         f = open(dat_dir+"/external_source.inp","w")
         f.write("2\n")
-        f.write("{0}\n".format(nwav))
-        for i in range(nwav):
-            f.write("{0}\n".format(wav[i]))
-        for i in range(nwav):
-            f.write("{0}\n".format(fnu[i]))
+        f.write("{0}\n".format(isrf_n_wavs))
+        for i in range(isrf_n_wavs):
+            f.write("{0}\n".format(isrf_wavs[i]))
+        for i in range(isrf_n_wavs):
+            f.write("{0}\n".format(isrf_fnu[i]))
         f.close()
 
-        lam_flam_isrf = []
-        for w in range(nwav):
-            lam_flam_isrf.append( fnu[w] * \
-              ( cs.c_cgs / (wav[w] * cs.cm_per_micron)  ) )
+        isrf_lam_flam = []
+        for w in range(isrf_n_wavs):
+            isrf_lam_flam.append( isrf_fnu[w] * \
+              ( cs.c_cgs / (isrf_wavs[w] * cs.cm_per_micron)  ) )
 
         if plot_isrf:
+
             fig = plt.figure(1)
             ax1 = plt.subplot(111)
-            plt.plot(wav, lam_flam_isrf, color = "k")
+            plt.plot(isrf_wavs, isrf_lam_flam, color = "k")
             plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = cs.fontsize, \
                labelpad=0.5)
             plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
@@ -163,7 +159,10 @@ def gen(arch_dir, dat_dir, plt_dir):
 ### ------------------------------------------------------------------------ ###
 
 
-    # Transfer all opacity files
+    # Transfer all opacity files, and plot if called for.
+
+    opac_files = ["kmhnew_extrap_dust","oh5_dust","ww04_dust", \
+     "www003_extrap_dust"]
 
     shutil.copy2(arch_dir+"/isrf/dust_opacity_and_ISRF/"+ \
       "dustopac.inp", dat_dir)
@@ -171,7 +170,7 @@ def gen(arch_dir, dat_dir, plt_dir):
         shutil.copy2(arch_dir+"/isrf/dust_opacity_and_ISRF/"+ \
          "dustkappa_"+opac_files[i]+".inp", dat_dir)
 
-    llambda_opac = [[] for i in range(4)]
+    wavs_opac = [[] for i in range(4)]
     kappa_abs_opac = [[] for i in range(4)]
     kappa_scat_opac = [[] for i in range(4)]
     kappa_tot = [[] for i in range(4)]
@@ -183,7 +182,7 @@ def gen(arch_dir, dat_dir, plt_dir):
         trash = f.readline() ; trash = f.readline()
         for lines in f:
             lines = lines.strip() ; columns = lines.split()
-            llambda_opac[i].append(float(columns[0]))
+            wavs_opac[i].append(float(columns[0]))
             kappa_abs_opac[i].append(float(columns[1]))
             kappa_scat_opac[i].append(float(columns[2]))
             kappa_tot[i].append(float(columns[1])+float(columns[2]))
@@ -197,7 +196,7 @@ def gen(arch_dir, dat_dir, plt_dir):
         fig = plt.figure(1)
         ax1 = plt.subplot(111)
         for i in range(4):
-            plt.plot(llambda_opac[i], kappa_tot[i], color = colors[i], \
+            plt.plot(wavs_opac[i], kappa_tot[i], color = colors[i], \
              linestyle = "-", label = leg_tag[i])
         plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = cs.fontsize, \
            labelpad=0.5)
@@ -219,19 +218,19 @@ def gen(arch_dir, dat_dir, plt_dir):
 ### ------------------------------------------------------------------------ ###
 
 
-    # Generate stars.inp
+    # Generate stars.inp, computing protostar radius from luminosity.
+    # From computed protostellar properties, compute dust destruction radius.
 
     f = open(dat_dir+"/stars.inp", "w")
     r_star = np.sqrt(l_star) * (5780.00 / 4000.0)**2.00
     f.write("2\n")
-    f.write("1 {0}\n".format(wav_bins) )
+    f.write("1 {0}\n".format(n_wavs) )
     f.write("{0} 1.998e+33 0. 0. 0.\n".format(r_star * cs.cm_per_rsol) )
-    for i in range(wav_bins):
-        f.write("{0}\n".format(llambda[i]))
+    for i in range(n_wavs):
+        f.write("{0}\n".format(wavs[i]))
     f.write("-{0}\n".format(int(t_star)))
     f.close()
 
-    # From computed protostellar properties, compute dust destruction radius
 
     R_DESTR = (r_star / 2.0) * (t_star / 1000.0 )**(6.0/2.0)
     R_DESTR *= (cs.cm_per_rsol / cs.cm_per_au)
@@ -242,25 +241,18 @@ def gen(arch_dir, dat_dir, plt_dir):
 
 ### ------------------------------------------------------------------------ ###
 
-
-    # Exit condition if component data is already set in amr_grid.inp
-    # and dust_density.dat files
-
-    if os.path.isfile(dat_dir+"/UNSCALED_amr_grid.inp"):
-        return
-    else:
-        shutil.copy2(dat_dir+"/amr_grid.inp", dat_dir+"/UNSCALED_amr_grid.inp")
-
-    # Compute rescaling factor for user defined envelope extent from
-    # amr_grid.inp limits. Then rewrite amr_grid.inp, and loc_grid.dat
-    # accounting for varied spatial scales
+    # Set how YSO extent is adjusted to R_env. Either scale entire simulation
+    # by ratio of simulation to parameter extent, or simply cut simulation
+    # envelope extent.
 
     xloc, yloc, zloc, rloc, xwid = \
        np.loadtxt(dat_dir+"/loc_grid.dat",unpack=True)
     rloc = rloc * cs.au_per_cm
     ngrid = len(rloc)
 
-    if R_env:
+    if scale_yso:
+
+        # Rescale amr_grid.inp limits, if entire snpashot scaled
 
         f = open(dat_dir+"/amr_grid.inp","r")
         lines = f.readlines()
@@ -276,6 +268,7 @@ def gen(arch_dir, dat_dir, plt_dir):
         f.writelines(lines)
         f.close()
 
+        # Apply rescale to both loc_grid.dat, and dust_density.inp
 
         xloc = xloc * scale
         yloc = yloc * scale
@@ -288,14 +281,27 @@ def gen(arch_dir, dat_dir, plt_dir):
              rloc[i], xwid[i]))
         f.close()
 
-    # Read in single-component dust_density.inp file,
-    # rescaling density accordingly. Also compute total mass to check scaling
+        rho = np.loadtxt(dat_dir+"/dust_density.inp", skiprows=3, unpack=True)
+        rho = rho * scale**(-3.0)
 
-    rho = np.loadtxt(dat_dir+"/dust_density.inp", skiprows=3, unpack=True)
+    elif not scale_yso:
 
-    rho = rho * scale**(-3.0)
+        # Simply set density exterior to R_env to zero. Re-read cut data to
 
-    snap_mass = sum(rho * (2.0*xwid)**3.0 * cs.msol_per_g / cs.dust_to_gas)
+        rho = np.loadtxt(dat_dir+"/dust_density.inp", skiprows=3, unpack=True)
+
+        f = open(dat_dir+"/dust_density.inp","w")
+        f.write("1\n")
+        f.write("{0}\n".format(ngrid))
+        f.write("1\n")
+        for i in range(ngrid):
+
+            if (rloc[i] > R_env):
+                f.write("0\n")
+            else:
+                f.write("{0}\n".format(rho[i]))
+
+        f.close()
 
 
 ### ------------------------------------------------------------------------ ###
@@ -312,7 +318,8 @@ def gen(arch_dir, dat_dir, plt_dir):
 
     xloc, yloc, zloc, rloc, xwid = \
        np.loadtxt(dat_dir+"/loc_grid.dat",unpack=True)
-    zloc *= cs.au_per_cm ; rloc *= cs.au_per_cm
+    zloc *= cs.au_per_cm
+    rloc *= cs.au_per_cm
     rloc_xy = np.hypot(xloc, yloc) * cs.au_per_cm
 
     # Compute cavity boundary, writing to dust_density.inp as required
@@ -322,6 +329,11 @@ def gen(arch_dir, dat_dir, plt_dir):
      (CAVITY_ralpha * math.tan(CAVITY_theta) )**CAVITY_beta
 
     for i in range(ngrid):
+
+        if (rloc[i] > R_env):
+            f.write("0\n")
+            continue
+
         zcav = CAVITY_alpha * rloc_xy[i]**(CAVITY_beta)
         if (abs(zloc[i]) > zcav):
 
@@ -337,12 +349,23 @@ def gen(arch_dir, dat_dir, plt_dir):
             elif not flat_cavity:
 
                 if (rloc[i] <= R_taper):
-                    f.write("{0}\n".format(CAVITY_rho) )
+
+                    if (rho_tmp > rho[i]):
+                        f.write("{0}\n".format(rho[i]))
+                    else:
+                        f.write("{0}\n".format(CAVITY_rho))
+
                 elif (rloc[i] > R_taper):
                     rho_tmp = CAVITY_rho * (R_taper / rloc[i])**(2.0)
-                    f.write("{0}\n".format(rho_tmp))
+
+                    if (rho_tmp > rho[i]):
+                        f.write("{0}\n".format(rho[i]))
+                    else:
+                        f.write("{0}\n".format(rho_tmp))
+
         else:
             f.write("0\n")
+
 
     # Use rdisc files to compute radial extent, and scale height of disc
 
@@ -397,6 +420,10 @@ def gen(arch_dir, dat_dir, plt_dir):
 
     for i in range(ngrid):
 
+        if (rloc[i] > R_env):
+            f.write("0\n")
+            continue
+
         zcav = CAVITY_alpha * rloc_xy[i]**(CAVITY_beta)
         if (abs(zloc[i]) < zcav):
 
@@ -411,6 +438,10 @@ def gen(arch_dir, dat_dir, plt_dir):
     # Now for disc midplane
 
     for i in range(ngrid):
+
+        if (rloc[i] > R_env):
+            f.write("0\n")
+            continue
 
         zcav = CAVITY_alpha * rloc_xy[i]**(CAVITY_beta)
         if (abs(zloc[i]) < zcav):
@@ -429,6 +460,10 @@ def gen(arch_dir, dat_dir, plt_dir):
     # Now for disc atmosphere
 
     for i in range(ngrid):
+
+        if (rloc[i] > R_env):
+            f.write("0\n")
+            continue
 
         zcav = CAVITY_alpha * rloc_xy[i]**(CAVITY_beta)
         if (abs(zloc[i]) < zcav):
@@ -462,109 +497,50 @@ def gen(arch_dir, dat_dir, plt_dir):
             rho[i].append(float(f.readline()))
     f.close()
 
-    # With multi species dust_density.inp file, rescale to designated mass
-
-    f = open(dat_dir+"/dust_density.inp","r")
-    trash = f.readline()
-    ngrid = int(f.readline())
-    nrspecies = int(f.readline())
-
-    # Apply one of two mass rescaling regimes. Either rescale entire domain,
-    # including cavity OR set cavity density as constant, and rescale "other"
-    # components.
+    # Rescale model, setting total cavity mass constant, and changing density
+    # for grid bins attributed to "other" components.
     # Either way, cut 1 AU cavity from central region to remove artificially
     # high density regions around protostar
 
-    if softset_cavity:
+    cavity_mass = 0.00
+    other_mass = 0.00
 
-        amr_mass = 0.00
+    for i in range(nrspecies):
 
-        for i in range(nrspecies):
-            for j in range(ngrid):
-                amr_mass += rho[i][j] * (2.0*xwid[j])**3.0
-        f.close()
+        for j in range(ngrid):
 
-        f_scale = (FULL_mass_scale * cs.dust_to_gas) / \
-         (amr_mass * cs.msol_per_g)
+            mass_bin = rho[i][j] * (2.0*xwid[j])**3.0
 
-        f = open(dat_dir+"/dust_density.inp","w")
-        f.write("1\n")
-        f.write("{0}\n".format(ngrid))
-        f.write("{0}\n".format(nrspecies))
-        for i in range(nrspecies):
-            for j in range(ngrid):
+            if (i == 0):
+                cavity_mass += mass_bin
+            else:
+                other_mass += mass_bin
 
-                if ((rloc[j] - (xwid[j]*cs.au_per_cm)) < R_DESTR):
-                    f.write("0\n")
-                else:
-                    f.write("{0}\n".format(rho[i][j] * f_scale) )
+    other_scale = ( (FULL_mass_scale * cs.dust_to_gas) - \
+     (cavity_mass * cs.msol_per_g) ) / (other_mass * cs.msol_per_g )
 
-        f.close()
+# Print a few model scaling/RT diagnostics to terminal
 
-    # Print a few model scaling diagnostics to terminal
+    print("\nAdopting dust destruction radius of {0} AU\n".format(R_DESTR))
 
-        print("\nAdopting dust destruction radius of {0} AU\n".format(R_DESTR))
+    print("Gas mass model scaled to: {0} M_sol".format(FULL_mass_scale))
+    print("Non-cavity gas mass: {0} M_sol".format(other_mass * \
+     cs.msol_per_g / cs.dust_to_gas))
+    print("Cavity gas mass: {0} M_sol".format(cavity_mass * \
+     cs.msol_per_g / cs.dust_to_gas))
+    print("Non-cavity mass rescale ratio: {0}\n".format(other_scale))
 
-        print("\nTotal snapshot mass: {0} M_sol".format(snap_mass))
-        print("Gas mass model scaled to: {0} M_sol".format(FULL_mass_scale))
-        print("AMR grid mass rescale ratio: {0}\n".format(f_scale))
+    f = open(dat_dir+"/dust_density.inp","w")
+    f.write("1\n")
+    f.write("{0}\n".format(ngrid))
+    f.write("{0}\n".format(nrspecies))
+    for i in range(nrspecies):
+        for j in range(ngrid):
 
-        print("\nSpatial rescale ratio: {0}".format(scale))
-        print("Max radius in AMR grid: {0} AU\n".format(lim * scale * \
-         cs.au_per_cm))
-
-    elif not softset_cavity:
-
-        cavity_mass = 0.00
-
-        other_mass = 0.00
-
-        for i in range(nrspecies):
-            for j in range(ngrid):
-
-                mass_bin = rho[i][j] * (2.0*xwid[j])**3.0
-
-                zcav = CAVITY_alpha * rloc_xy[j]**(CAVITY_beta)
-                if (abs(zloc[j]) > zcav):
-                    cavity_mass += mass_bin
-                else:
-                    other_mass += mass_bin
-
-        other_scale = ( (FULL_mass_scale * cs.dust_to_gas) - \
-         (cavity_mass * cs.msol_per_g) ) / (other_mass * cs.msol_per_g )
-
-    # Print a few model scaling/RT diagnostics to terminal
-
-        print("\nAdopting dust destruction radius of {0} AU\n".format(R_DESTR))
-
-        print("\nTotal snapshot mass: {0} M_sol".format(snap_mass))
-        print("Gas mass model scaled to: {0} M_sol".format(FULL_mass_scale))
-        print("Non-cavity gas mass: {0} M_sol".format(other_mass * \
-         cs.msol_per_g / cs.dust_to_gas))
-        print("Cavity gas mass: {0} M_sol".format(cavity_mass * \
-         cs.msol_per_g / cs.dust_to_gas))
-        print("Non-cavity mass rescale ratio: {0}\n".format(other_scale))
-
-        print("\nSpatial rescale ratio: {0}".format(scale))
-        print("Max radius in AMR grid: {0} AU\n".format(lim * scale * \
-         cs.au_per_cm))
-
-        f = open(dat_dir+"/dust_density.inp","w")
-        f.write("1\n")
-        f.write("{0}\n".format(ngrid))
-        f.write("{0}\n".format(nrspecies))
-        for i in range(nrspecies):
-            for j in range(ngrid):
-
-                zcav = CAVITY_alpha * rloc_xy[j]**(CAVITY_beta)
-
-                if ((rloc[j] - (xwid[j]*cs.au_per_cm)) < R_DESTR):
-                    f.write("0\n")
-                elif (abs(zloc[j]) > zcav):
-                    f.write("{0}\n".format(rho[i][j]))
-                else:
-                    f.write("{0}\n".format(rho[i][j] * other_scale) )
-
-        f.close()
+            if (i == 0):
+                f.write("{0}\n".format(rho[i][j]))
+            else:
+                f.write("{0}\n".format(rho[i][j] * other_scale) )
+    f.close()
 
     return
