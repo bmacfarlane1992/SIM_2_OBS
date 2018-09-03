@@ -355,11 +355,11 @@ for cut in range(len(r_cores)):
                     if (s == 0) and (i == 3):
                         plt.scatter(lums_label[s], flam_ratio[cut][s][c][0][i][w], \
                          color=colors[i], label = legend, \
-                         marker = marker, s = 20*(s+1), facecolors = fc )
+                         marker = marker, s = 40*(s+1), facecolors = fc )
                     else:
                         plt.scatter(lums_label[s], flam_ratio[cut][s][c][0][i][w], \
                          color=colors[i], \
-                         marker = marker, s = 20*(s+1), facecolors = fc )
+                         marker = marker, s = 40*(s+1), facecolors = fc )
 
 #
             for r in range(len(mult_tags)*2 + 1):
@@ -391,11 +391,11 @@ for cut in range(len(r_cores)):
                     if (s == 0) and (i == 3):
                         plt.scatter(lums_label[s], flam_ratio[cut][s][0][r][i][w], \
                          color=colors[i], label = legend, \
-                         marker = marker, s = 20*(s+1), facecolors = fc )
+                         marker = marker, s = 40*(s+1), facecolors = fc )
                     else:
                         plt.scatter(lums_label[s], flam_ratio[cut][s][0][r][i][w], \
                          color=colors[i], \
-                         marker = marker, s = 20*(s+1), facecolors = fc )
+                         marker = marker, s = 40*(s+1), facecolors = fc )
 
 #
 
@@ -443,11 +443,11 @@ for cut in range(len(r_cores)):
                 if (s == 0) and (i == 3):
                     plt.scatter(T_bol[cut][s][c][0][i][0], L_bol[cut][s][c][0][i][0], \
                      color=colors[i], label = legend, \
-                     marker = marker, s = 20*(s+1), facecolors = fc )
+                     marker = marker, s = 40*(s+1), facecolors = fc )
                 else:
                     plt.scatter(T_bol[cut][s][c][0][i][0], L_bol[cut][s][c][0][i][0], \
                      color=colors[i], \
-                     marker = marker, s = 20*(s+1), facecolors = fc )
+                     marker = marker, s = 40*(s+1), facecolors = fc )
 
 #
             for r in range(len(mult_tags)*2 + 1):
@@ -479,11 +479,11 @@ for cut in range(len(r_cores)):
                     if (s == 0) and (c == 0) and (i == 3):
                         plt.scatter(T_bol[cut][s][c][r][i][0], L_bol[cut][s][c][r][i][0], \
                          color=colors[i], label = legend, \
-                         marker = marker, s = 20*(s+1), facecolors = fc )
+                         marker = marker, s = 40*(s+1), facecolors = fc )
                     else:
                         plt.scatter(T_bol[cut][s][c][r][i][0], L_bol[cut][s][c][r][i][0], \
                          color=colors[i], \
-                         marker = marker, s = 20*(s+1), facecolors = fc )
+                         marker = marker, s = 40*(s+1), facecolors = fc )
 #
     for e in range(len(sim_tags)):
 
@@ -568,11 +568,11 @@ for s in range(len(lums) + 1):
             if (s == 0) and (i == 3):
                 plt.scatter(Tbol_diff[s][c][0][i][0], Lbol_diff[s][c][0][i][0], \
                  color=colors[i], label = legend, \
-                 marker = marker, s = 20*(s+1), facecolors = fc )
+                 marker = marker, s = 40*(s+1), facecolors = fc )
             else:
                 plt.scatter(Tbol_diff[s][c][0][i][0], Lbol_diff[s][c][0][i][0], \
                  color=colors[i], \
-                 marker = marker, s = 20*(s+1), facecolors = fc )
+                 marker = marker, s = 40*(s+1), facecolors = fc )
 #
         for r in range(len(mult_tags)*2 + 1):
 
@@ -603,11 +603,11 @@ for s in range(len(lums) + 1):
                 if (s == 0) and (c == 0) and (i == 3):
                     plt.scatter(Tbol_diff[s][c][r][i][0], Lbol_diff[s][c][r][i][0], \
                      color=colors[i], label = legend, \
-                     marker = marker, s = 20*(s+1), facecolors = fc )
+                     marker = marker, s = 40*(s+1), facecolors = fc )
                 else:
                     plt.scatter(Tbol_diff[s][c][r][i][0], Lbol_diff[s][c][r][i][0], \
                      color=colors[i], \
-                     marker = marker, s = 20*(s+1), facecolors = fc )
+                     marker = marker, s = 40*(s+1), facecolors = fc )
 #
 plt.ylabel(r"$\Delta$ L$_{BOL}$ (L$_{\odot}$)", fontsize = cs.fontsize, labelpad=0.5)
 ax1.set_xlim(150,-20)
