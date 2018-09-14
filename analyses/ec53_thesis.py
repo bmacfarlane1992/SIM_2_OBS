@@ -51,7 +51,7 @@ import functions as fs
 dist = 436.0        # Float: Distance (pc) to source
 best_cavity = 20
 best_inclin = 30         # Int. Designated inclination ("best" fit)
-best_rcore = "1e4"       # Str. Designated core radius ("best" fit)
+best_rcore = "5e4"       # Str. Designated core radius ("best" fit)
 #
 bolometrics = False     # Bool.: Are bolometric propertes of SEDs computed?
 plt_form = "png"    # Str.: Format of output plots ["png","eps"]
@@ -72,6 +72,82 @@ f = run_dir + "/EC53_D15_2876_flux.txt"
 ec53_wav, ec53_fnu, ec53_err = np.loadtxt(f, skiprows=1, unpack=True)
 ec53_fnu *= 0.001 * cs.Jy_cgs * (cs.c_cgs / (ec53_wav*cs.cm_per_micron))
 ec53_err *= 0.001 * cs.Jy_cgs * (cs.c_cgs / (ec53_wav*cs.cm_per_micron))
+
+### ------------------------------------------------------------------------ ###
+
+
+print("\nComparing SEDs for R_CORE = "+best_rcore+", with i = "+str(best_inclin))
+print("and varying cavity opening angles\n")
+#
+wav = [[] for i in range(3)]
+flam = [[] for i in range(3)]
+lam_flam = [[] for i in range(3)]
+#
+cwd = os.getcwd()
+dat_dir = run_dir + "/dat_" + best_rcore + "_cavity"
+#
+theta = ["10","20","30"]
+#
+leg_names = [r"$\theta = 10^\circ$", \
+  r"$\theta = 20^\circ$", \
+  r"$\theta = 30^\circ$"]
+color = ["r","g","b"]
+linestyle = ["-","-","-"]
+linewidth = [1,1,1]
+
+for i in range(3):
+
+    # Read SED data
+
+    fsed = dat_dir+theta[i]+"/spectrum6L_ISRF_"+str(best_inclin)+"i.out"
+
+    wav[i], flam[i], lam_flam[i], nu, fnu, nu_fnu = fs.SED_read(fsed)
+
+    for j in range(len(lam_flam[i])):
+        lam_flam[i][j] /= dist**(2.0)
+
+    if bolometrics:
+
+        # Model bolometric luminosity
+
+        L_bol = fs.Lbol_calc(nu, fnu)
+
+        # Model bolometric temperature
+
+        T_bol = fs.Tbol_calc(nu,fnu, nu_fnu)
+
+        # Model sub-mm to bolometric luminosity ratio
+
+        L_ratio = fs.L_ratio_calc(nu, fnu)
+
+        # Print results to terminal
+
+        print("\nFor theta = {0} deg., {1} model: \n".format(best_cavity, \
+         leg_names[i]))
+
+        print("Bolometric luminosity is: {0} L_sol\n".format(L_bol))
+        print("Ratio of Bolometric and sub-mm "+ \
+          "luminosity is {0} %\n".format(L_ratio) )
+        print("Bolometric temperature is: {0} K\n".format(T_bol))
+
+fig = plt.figure(1)
+ax1 = plt.subplot(111)
+for i in range(len(theta)):
+    plt.plot( wav[i], lam_flam[i], label = leg_names[i], color=color[i], \
+       linestyle = linestyle[i], linewidth = linewidth[i])
+plt.errorbar(ec53_wav, ec53_fnu, yerr=ec53_err, \
+ fmt='o', mfc='k', ecolor='k', ms=5)
+ymax = max(lam_flam[0])*10. ; ymin = 8.0e-14
+plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
+plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
+ax1.set_xlim(8.e-2,2500.)
+plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg cm$^{-2}$ s$^{-1}$)", \
+  fontsize = cs.fontsize, labelpad=0.5)
+ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
+plt.legend(loc = "upper left", fontsize=cs.leg_fontsize)
+plt.tight_layout()
+plt.savefig(plt_dir + "/ec53_opening."+plt_form, format = plt_form)
+plt.clf()
 
 
 ### ------------------------------------------------------------------------ ###
@@ -143,11 +219,12 @@ ymax = max(lam_flam[0])*10. ; ymin = 8.0e-14
 plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
 plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
 ax1.set_xlim(8.e-2,2500.)
-plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
+plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg cm$^{-2}$ s$^{-1}$)", \
+  fontsize = cs.fontsize, labelpad=0.5)
 ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
 plt.legend(loc = "upper left", fontsize=cs.leg_fontsize)
 plt.tight_layout()
-plt.savefig(plt_dir + "/incl_ec53_"+str(best_rcore)+ \
+plt.savefig(plt_dir + "/ec53_incl_"+str(best_rcore)+ \
  "cavity"+str(best_cavity)+"."+plt_form, format = plt_form)
 plt.clf()
 
@@ -216,11 +293,12 @@ ymax = max(lam_flam[0])*10. ; ymin = 8.0e-14
 plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
 plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
 ax1.set_xlim(8.e-2,2500.)
-plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
+plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg cm$^{-2}$ s$^{-1}$)", \
+  fontsize = cs.fontsize, labelpad=0.5)
 ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
 plt.legend(loc = "upper left", fontsize=cs.leg_fontsize)
 plt.tight_layout()
-plt.savefig(plt_dir + "/rad_ec53_cavity"+str(best_cavity)+"."+plt_form, \
+plt.savefig(plt_dir + "/ec53_extents_cavity"+str(best_cavity)+"."+plt_form, \
  format = plt_form)
 plt.clf()
 
@@ -234,15 +312,14 @@ print("R_CORE  = "+best_rcore+", theta = "+str(best_cavity)+ \
 cwd = os.getcwd()
 dat_dir = run_dir + "/dat_"+best_rcore+"_cavity"+str(best_cavity)
 #
-lums = [10,20,25,30]
+lums = [10,20,25]
 leg_names = [r"$L_{*,q} = 6 $ L$_\odot$", \
   r"$L_{*,o} = 10 $ L$_\odot$", \
   r"$L_{*,o} = 20 $ L$_\odot$", \
-  r"$L_{*,o} = 25 $ L$_\odot$", \
-  r"$L_{*,o} = 30 $ L$_\odot$"]
-color = ["k","r","g","b","cyan"]
-linestyle = ["--","-","-","-","-"]
-linewidth = [1,1,1,1,1]
+  r"$L_{*,o} = 25 $ L$_\odot$"]
+color = ["k","r","g","b"]
+linestyle = ["--","-","-","-"]
+linewidth = [1,1,1,1]
 
 wav = [[] for i in range(len(lums)+1)]
 flam = [[] for i in range(len(lums)+1)]
@@ -302,10 +379,58 @@ ymax = max(lam_flam[3])*10. ; ymin = 8.0e-14
 plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
 plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
 ax1.set_xlim(8.e-2,2500.)
-plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
+plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg cm$^{-2}$ s$^{-1}$)", \
+  fontsize = cs.fontsize, labelpad=0.5)
 ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
 plt.axvline(x=850.0, linestyle="dashed", color="k")
 plt.legend(loc = "upper left", fontsize=cs.leg_fontsize-2)
 plt.tight_layout()
-plt.savefig(plt_dir + "/burst_ec53."+plt_form, format = plt_form)
+plt.savefig(plt_dir + "/ec53_burst."+plt_form, format = plt_form)
+plt.clf()
+
+
+### ------------------------------------------------------------------------ ###
+
+print("\nComputing and plotting flux response as function of outbursting-to- ")
+print("quiescent luminosity ratio, for 70, 250, 450, 850 and 1300 microns")#
+#
+
+lums = [10,20,25]
+leg_names = [r"$\lambda = 70 $ $\mu$m", \
+  r"$\lambda = 250 $ $\mu$m", \
+  r"$\lambda = 450 $ $\mu$m", \
+  r"$\lambda = 850 $ $\mu$m", \
+  r"$\lambda = 1300 $ $\mu$m"]
+
+ratio70 = [0.0 for i in range(len(lums))]
+ratio250 = [0.0 for i in range(len(lums))]
+ratio450 = [0.0 for i in range(len(lums))]
+ratio850 = [0.0 for i in range(len(lums))]
+ratio1300 = [0.0 for i in range(len(lums))]
+lratio =  [0.0 for i in range(len(lums))]
+
+flam_int_q = interp1d(wav[0], flam[0])
+for i in range(len(lums)):
+    lratio[i] = float(lums[i]) / 6.0
+    flam_int_o= interp1d(wav[i+1], flam[i+1])
+    ratio70[i] = str(round( ( flam_int_o(70) / flam_int_q(70) ), 2))
+    ratio250[i] = str(round( ( flam_int_o(250) / flam_int_q(250) ), 2))
+    ratio450[i] = str(round( ( flam_int_o(450) / flam_int_q(450) ), 2))
+    ratio850[i] = str(round( ( flam_int_o(850) / flam_int_q(850) ), 2))
+    ratio1300[i] = str(round( ( flam_int_o(1300) / flam_int_q(1300) ), 2))
+
+fig = plt.figure(1)
+ax1 = plt.subplot(111)
+plt.scatter( lratio, ratio70, label = leg_names[0], color="r", s = 40)
+plt.scatter( lratio, ratio250, label = leg_names[1], color="g", s = 40)
+plt.scatter( lratio, ratio450, label = leg_names[2], color="b", s = 40)
+plt.scatter( lratio, ratio850, label = leg_names[3], color="k", s = 40)
+plt.scatter( lratio, ratio1300, label = leg_names[4], color="cyan", s = 80)
+plt.xlabel(r"L$_{*, o}$ / L$_{*, q}$", fontsize = cs.fontsize, labelpad=0.5)
+plt.ylabel(r"F$_{\lambda, o}$ / F$_{\lambda, q}$", fontsize = cs.fontsize, \
+ labelpad=0.5)
+ax1.set_ylim(1,5.5)
+plt.legend(loc = "upper left", fontsize=cs.leg_fontsize, scatterpoints=20)
+plt.tight_layout()
+plt.savefig(plt_dir + "/ec53_response."+plt_form, format = plt_form)
 plt.clf()
