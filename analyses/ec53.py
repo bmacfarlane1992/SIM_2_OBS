@@ -2,18 +2,20 @@
 
 ec53.py
 
-Routine to check both SED and temperature profiles of two models with
-different protostellar luminosity, with/without ISRF in RT calculation. Also
-compares to RT run with ISRF only. Uses data to then evaluate flux ratio
-at 850 micron.
+Routine to diagnose SEDs of EC 53 modelling with/without ISRF in RT calculation.
+Uses data to then evaluate flux ratio between quiescent and outbursting RT
+models at user defined wavelengths - over entire model.
+
+Then computes, for each wavelength, the flux ratio as RT is computed over
+smaller apertures - looping over annuli of radius incraesing by 1000 AU.
 
 SEREN snapshot DE05...00788... used, which is scaled to EC 53 envelope mass of
-1.84 M_sol (Enoch et al., 2009). Simulation with RT model parameterised by
-protostellar temperature defined (in K) as XXXX in spectrumXXXX.out files.
-Data with ISRF of Andre et al. (2003) denoted by _ISRF tag.
+5.8 M_sol (Enoch+ 2009 ; Dunham+ 2015). Fluxes are normalised to a distance of
+436 pc (Ortiz-Leon+ 2017). RT model parameters adopted as per Baek+ (2018)
+modelling, were R_core = 10 000 ; theta_cav = 20 deg., i = 30 deg.
 
 Author: Benjamin MacFarlane
-Date: 20/08/2018
+Date: 25/10/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -49,8 +51,11 @@ import functions as fs
 #
 dist = 436.0        # Float: Distance (pc) to source
 inclin = 30          # Int. Inclination being probed by SED analyses
-lums = [6, 20]
-#
+lums = [6, 20]      # Int. Arr.: Protostar luminosity for models
+
+ratio_wavs = [100,450,850]   # Int. Arr.: Wavelengths flux ratio is computed for
+
+exec_loc = ""       # Str.: Where is radmc3d executable called from?
 plt_form = "png"    # Str.: Format of output plots ["png","eps"]
 #
 #
@@ -59,6 +64,7 @@ plt_form = "png"    # Str.: Format of output plots ["png","eps"]
 		# # # - - - MAIN PROGRAM - - - # # #
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
+    # Set up variables for reading files, and plotting relevant data
 
 print("\nRUNNING ANALYSES FOR EC 53 MODELLING\n")
 #
@@ -71,6 +77,7 @@ leg_names = [str(lums[0])+r" L$_\odot$ (Quiescent)", \
   str(lums[1])+r" L$_\odot$ + ISRF (Outbursting)"]
 #
 cwd = os.getcwd()
+arch_dir = cwd + "/../.."
 run_dir = cwd + "/../../runs/EC53"
 dat_dir = run_dir + "/dat_paper"
 plt_dir = run_dir + "/plots_analysis/paper"
@@ -82,9 +89,11 @@ linewidth = [1,1,2,2]
 s = [0.25,0.25,0.5,0.5]
 color = ["b","b","r","r"]
 linestyle = ["-",":","-",":"]
-#
-    # Before data read, store EC 53 photometry data
-#
+
+### ------------------------------------------------------------------------ ###
+
+    # Before reading SED data, store EC 53 photometry data
+
 f = run_dir + "/EC53_D15_2876_flux.txt"
 ec53_wav, ec53_fnu, ec53_err = np.loadtxt(f, skiprows=1, unpack=True)
 ec53_fnu *= 0.001 * cs.Jy_cgs * (cs.c_cgs / (ec53_wav*cs.cm_per_micron))
@@ -94,7 +103,7 @@ wav = [[] for i in range(4)]
 flam = [[] for i in range(4)]
 lam_flam = [[] for i in range(4)]
 #
-    # First, read and store SED data for PRE-, then POST- cut model
+    # then read and store SED data for relevant models
 #
 for i in range(len(names)):
 
@@ -104,6 +113,25 @@ for i in range(len(names)):
     for j in range(len(lam_flam[i])):
         lam_flam[i][j] /= dist**(2.0)
 
+### ------------------------------------------------------------------------ ###
+
+    # Read in extinction data, and apply correction to flux
+
+    A_v = 9.6 ; k_v = 211.4
+
+    wav_extinct, extinct = \
+     np.loadtxt(arch_dir+"/isrf/dust_opacity_and_ISRF/extinction_law.ascii",
+     unpack=True, skiprows=1)
+
+    extinct_int = interp1d(wav_extinct, extinct)
+
+    for j in range(len(wav[i])):
+
+        if (wav[i][j] <= min(wav_extinct)) or (wav[i][j] >= max(wav_extinct)):
+            continue
+        else:
+            A_lam = A_v * extinct_int(wav[i][j]) / k_v
+            lam_flam[i][j] = lam_flam[i][j] * 10.0**(-0.4 * A_lam)
 
 ### ------------------------------------------------------------------------ ###
 
@@ -131,32 +159,44 @@ for i in range(len(names)):
 
 ### ------------------------------------------------------------------------ ###
 
-
-#   Multiple cut method analysis:
-#
     # Now plot SED. Zoom into SED in region of interest, using second panel
-#
-# SED
-#
+
+# SED - quiescent vs. outbursting comparison
+
 fig = plt.figure(1)
 ax1 = plt.subplot(111)
 for i in range(4):
     plt.plot( wav[i], lam_flam[i], label = leg_names[i], color=color[i], \
        linestyle = linestyle[i], linewidth = linewidth[i])
-#plt.errorbar(ec53_wav, ec53_fnu, yerr=ec53_err, \
-# fmt='o', mfc='k', ecolor='k', ms=5)
 ymax = max(lam_flam[3])*10. ; ymin = 8.0e-14
 plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
 plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
 ax1.set_xlim(8.e-1,2500.)
 plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
 ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-#plt.axvline(x=850.0, linestyle="dashed", color="k")
-#plt.legend(loc = "upper left", fontsize=8)
 plt.tight_layout()
 plt.savefig(plt_dir + "/SED_"+str(inclin)+"i."+plt_form, format = plt_form)
 plt.clf()
-#
+
+fig = plt.figure(1)
+ax1 = plt.subplot(111)
+for i in range(4):
+    plt.plot( wav[i], lam_flam[i], label = leg_names[i], color=color[i], \
+       linestyle = linestyle[i], linewidth = linewidth[i] )
+ymax = 2.00e-9 ; ymin = 2.00e-12
+plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
+plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
+ax1.set_xlim(300.,1000.)
+plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
+ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
+plt.legend(loc = "upper right", fontsize=10)
+plt.tight_layout()
+plt.savefig(plt_dir + "/SED_ZOOM._"+str(inclin)+"i."+plt_form, \
+  format = plt_form)
+plt.clf()
+
+# SED of quiescent model w/ wo/ ISRF, to compare to observational data
+
 fig = plt.figure(1)
 ax1 = plt.subplot(111)
 for i in range(2):
@@ -170,63 +210,160 @@ plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
 ax1.set_xlim(8.e-1,2500.)
 plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
 ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-#plt.axvline(x=850.0, linestyle="dashed", color="k")
 plt.legend(loc = "upper left", fontsize=8)
 plt.tight_layout()
 plt.savefig(plt_dir + "/3d_sed_fiducial."+plt_form, format = plt_form)
 plt.clf()
-#
-fig = plt.figure(1)
-ax1 = plt.subplot(111)
-for i in range(4):
-    plt.plot( wav[i], lam_flam[i], label = leg_names[i], color=color[i], \
-       linestyle = linestyle[i], linewidth = linewidth[i] )
-ymax = 2.00e-9 ; ymin = 2.00e-12
-plt.xlabel("Wavelength ("+(r"$\mu$m")+")", fontsize = 18, labelpad=0.5)
-plt.xticks(fontsize = 15) ;   ax1.set_xscale("log")
-ax1.set_xlim(300.,1000.)
-plt.ylabel(r"$\lambda$ F$_{\lambda}$", fontsize = 18, labelpad=0.5)
-ax1.set_yscale("log") ; ax1.set_ylim( ymin, ymax )
-#plt.axvline(x=450.0, linestyle="dashed", color="k")
-#plt.axvline(x=850.0, linestyle="dashed", color="k")
-plt.legend(loc = "upper right", fontsize=10)
-plt.tight_layout()
-plt.savefig(plt_dir + "/SED_ZOOM._"+str(inclin)+"i."+plt_form, \
-  format = plt_form)
-plt.clf()
+
 
 ### ------------------------------------------------------------------------ ###
 
+#   Flux ratio calculations, for models w/ wo/ ISRF, over predefined wavelengths
 
-#   Singular cut method analysis:
-#
-#   450 and 850 micron flux ratio calculation (lambda F lambda)
-#
 L_ratio = float(lums[1]) / float(lums[0])
 print("Ratio of protostellar luminosities, assuming constant "+ \
   "radius is: {0}\n".format(L_ratio) )
 
-print("\nComputing (lambda F_lambda) ratio for "+ \
-  "{0} and {1}\n".format(leg_names[0], leg_names[2]) )
-#
-flam_int1 = interp1d(wav[0], flam[0])
-flam_int2 = interp1d(wav[2], flam[2])
-ratio450 = round( ( flam_int2(450) / flam_int1(450) ), 3)
-print("Ratio 450 micron flux is: {0}\n".format(ratio450) )
-ratio850 = round( ( flam_int2(850) / flam_int1(850) ), 3)
-print("Ratio 850 micron flux is: {0}\n".format(ratio850) )
+fw = open(dat_dir+"/full_fluxes.dat","w")
+fw.write("# ISRF inclusion\tWavelength\tF(Quiescent)\tF(Outbursting)\tF(O) / F(Q)\n")
 
-print("\nComputing (lambda F_lambda) ratio for "+ \
-  "{0} and {1}\n".format(leg_names[1], leg_names[3]) )
-#
-flam_int1 = interp1d(wav[1], flam[1])
-flam_int2 = interp1d(wav[3], flam[3])
-ratio450 = round( ( flam_int2(450) / flam_int1(450) ), 3)
-print("Ratio 450 micron flux is: {0}\n".format(ratio450) )
-ratio850 = round( ( flam_int2(850) / flam_int1(850) ), 3)
-print("Ratio 850 micron flux is: {0}\n".format(ratio850) )
+for i in range(2):
+
+    print("\nComputing (lambda F_lambda) ratio for "+ \
+     "{0} and {1}\n".format(leg_names[i], leg_names[i+2]) )
+
+    if (i == 0):
+        f_isrf = "N"
+    else:
+        f_isrf = "Y"
+
+    flam_int1 = interp1d(wav[i], flam[i])
+    flam_int2 = interp1d(wav[i+2], flam[i+2])
+
+    for j in range(len(ratio_wavs)):
+
+        ratio = round(( flam_int2(ratio_wavs[j]) / flam_int1(ratio_wavs[j])), 3)
+        print("Ratio {0} micron flux is: {1}\n".format(ratio_wavs[j], ratio) )
+
+        fw.write('''{0}\t{1}\t{2}\t{3}\t{4}
+        '''.format(f_isrf,ratio_wavs[j],flam_int1(ratio_wavs[j]),\
+         flam_int2(ratio_wavs[j]), ratio))
+
+fw.close()
 
 ### ------------------------------------------------------------------------ ###
+
+    # Carry out RT over each snapshot, to evaluate fluxes over apertures smaller
+    # than model extent.
+
+    # Loop for models of varying ISRF contribution
+
+fw = open(dat_dir+"/annuli_fluxes.dat","w")
+fw.write("# Aperture Radius\tISRF inclusion\tWavelength\tF(Quiescent)\tF(Outbursting)\tF(O) / F(Q)\n")
+for i in range(2):
+
+    ind1 = i ; ind2 = i + 2
+
+    if (i == 0):
+        ext2 = ""
+        f_isrf = "N"
+    else:
+        ext2 = "_ISRF"
+        f_isrf = "Y"
+
+    ratio = [0 for i in range(2)]
+
+    # Loop for various wavelengths
+
+    for j in range(len(ratio_wavs)):
+
+    # Loop for quiescent and outbursting models
+
+        for s in range(2):
+
+            ext1 = str(lums[s])+"L"
+            ext = ext1 + ext2
+
+            shutil.copy2(dat_dir+"/dust_temperature"+ext+".dat", \
+             dat_dir+"/dust_temperature.dat")
+
+            max_r = 11000 ; npix = 100 #max_r / 5
+
+            os.chdir(dat_dir)
+            os.system('''{0}radmc3d image lambda {1} incl {2} \\
+             zoomau {3} {4} {3} {4} npix {5}'''.format(exec_loc, \
+             ratio_wavs[j], inclin, - max_r, max_r, npix) )
+            os.chdir(cwd)
+
+            ext3 = "_"+str(ratio_wavs[j])+"micron"
+            shutil.copy2(dat_dir+"/image.out", dat_dir+"/image"+ext+ext3+".out")
+
+        r_im  = []
+        f = open(dat_dir+"/image.out","r")
+        for l in range(6):
+            trash = f.readline()
+        for y in range(npix):
+            y_im = -max_r + (max_r / npix) + y*(2*max_r / npix)
+
+            for x in range(npix):
+
+                x_im = -max_r + (max_r / npix) + x*(2*max_r / npix)
+
+                r_im.append( np.sqrt(x_im**2.0 + y_im**2.0 ) )
+
+        f.close()
+
+    # Now re-loop over relevant image.out files for quiescent and outbursting
+    # outputs, for different annuli
+
+        for a in range((max_r / 1000)):
+
+            r_lim = max_r - (1000 * a)
+
+            flux_annulus1 = 0 ; flux_annulus2 = 0
+            f1 = open(dat_dir+"/image"+str(lums[0])+"L"+ext2+ext3+".out", "r")
+            f2 = open(dat_dir+"/image"+str(lums[1])+"L"+ext2+ext3+".out", "r")
+
+            for l in range(6):
+                trash = f1.readline()
+                trash = f2.readline()
+            for y in range(npix):
+
+                y_im = -max_r + (max_r / npix) + y*(2*max_r / npix)
+
+                for x in range(npix):
+
+                    x_im = -max_r + (max_r / npix) + x*(2*max_r / npix)
+
+                    if np.sqrt(x_im**2.0 + y_im**2.0 ) > r_lim:
+                        trash = f1.readline()
+                        trash = f2.readline()
+                    else:
+                        flux_annulus1 += float(f1.readline())
+                        flux_annulus2 += float(f2.readline())
+
+            flux_ratio = flux_annulus2 / flux_annulus1
+
+            fw.write('''{0}\t{1}\t{2}\t{3}\t{4}\t{5}
+            '''.format(r_lim, f_isrf,ratio_wavs[j],flux_annulus2,\
+             flux_annulus1, flux_ratio))
+
+            print('''\nFor RT over R = {0} AU aperture \n'''.format(r_lim))
+            print('''Total flux in {0}L{1}{2} model is {3}
+            '''.format(lums[0],ext2,ext3,flux_annulus1))
+            print('''Total flux in {0}{1}{2} model is {3}
+            '''.format(lums[1],ext2,ext3,flux_annulus2))
+            print('''Ratio of fluxes for this aperture is {0}
+            '''.format(flux_ratio))
+
+            f1.close()
+            f2.close()
+
+fw.close()
+
+
+### ------------------------------------------------------------------------ ###
+
 '''
 #
     # Compare the beam-dependent flux for E1 snapshots with ISRF heating

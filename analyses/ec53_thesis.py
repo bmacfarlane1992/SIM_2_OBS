@@ -14,7 +14,7 @@ all bar outbursting case comparison, SED is overplotted with c2d Spitzer,
 Herschel and JCMT data of Dunham+ (2015) and Yoo+ (2017)
 
 Author: Benjamin MacFarlane
-Date: 20/08/2018
+Date: 14/09/2018
 Contact: bmacfarlane@uclan.ac.uk
 
 '''
@@ -50,8 +50,8 @@ import functions as fs
 #
 dist = 436.0        # Float: Distance (pc) to source
 best_cavity = 20
-best_inclin = 30         # Int. Designated inclination ("best" fit)
-best_rcore = "5e4"       # Str. Designated core radius ("best" fit)
+best_inclin = 0         # Int. Designated inclination ("best" fit)
+best_rcore = "1e4"       # Str. Designated core radius ("best" fit)
 #
 bolometrics = False     # Bool.: Are bolometric propertes of SEDs computed?
 plt_form = "png"    # Str.: Format of output plots ["png","eps"]
@@ -88,9 +88,9 @@ dat_dir = run_dir + "/dat_" + best_rcore + "_cavity"
 #
 theta = ["10","20","30"]
 #
-leg_names = [r"$\theta = 10^\circ$", \
-  r"$\theta = 20^\circ$", \
-  r"$\theta = 30^\circ$"]
+leg_names = [r"$\theta_{c} = 10^\circ$", \
+  r"$\theta_{c} = 20^\circ$", \
+  r"$\theta_{c} = 30^\circ$"]
 color = ["r","g","b"]
 linestyle = ["-","-","-"]
 linewidth = [1,1,1]
@@ -388,7 +388,7 @@ plt.tight_layout()
 plt.savefig(plt_dir + "/ec53_burst."+plt_form, format = plt_form)
 plt.clf()
 
-
+'''
 ### ------------------------------------------------------------------------ ###
 
 print("\nComputing and plotting flux response as function of outbursting-to- ")
@@ -434,3 +434,4 @@ plt.legend(loc = "upper left", fontsize=cs.leg_fontsize, scatterpoints=20)
 plt.tight_layout()
 plt.savefig(plt_dir + "/ec53_response."+plt_form, format = plt_form)
 plt.clf()
+'''

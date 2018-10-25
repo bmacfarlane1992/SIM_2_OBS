@@ -168,7 +168,7 @@ for s in range(len(snaps)):
         f_loc = dat_dir+"/"+snaps[s]+"/"+cut[c]+"/dat/loc_grid.dat"
 
         xloc, yloc, zloc, rloc[s][c], xwid = \
-            np.loadtxt(dat_dir+"/loc_grid.dat",unpack=True)
+            np.loadtxt(f_loc,unpack=True)
         rloc[s][c] *= cs.au_per_cm
 
         for r in range(len(isrf)):
@@ -196,7 +196,7 @@ for s in range(len(snaps)):
                   "/dat/spectrum"+str(int(t_star[s]))+isrf_ext+ \
                   "_"+str(int(inclins[i]))+"i.out"
 
-                wavs[s][c][r][i], flam[s][c][r][i], lam_flam, \
+                wavs[s][c][r][i], tmp, flam[s][c][r][i], \
                  nu, fnu, nu_fnu = fs.SED_read(f_sed)
 
     # Normalise if called for
@@ -321,6 +321,7 @@ name_event = ["ACC1","ACC2"]    # Plot options for accretion tag - filename
 #
     # Temperature plots for single snapshot, single cut, multiple ISRF selection
 #
+'''
 print("Plotting single event, single cut, multiple ISRF temperature plots\n")
 for c in range(len(cut)):
     for s in range(len(snaps)/2):
@@ -336,7 +337,7 @@ for c in range(len(cut)):
         ax1 = plt.subplot(111)
         for r in range(len(isrf)):
             plt.scatter(rloc[s1][c], temp[s1][c][r], color = colors_t[r*2], \
-              label = name_ea[0]+": "+str(l_star[s1])+r" $L_{\odot}$"+ \
+              label = name_ea[0]+": "+str(l_star[s1])+r" L$_{\odot}$"+ \
               leg_ext[r], s = 0.1 )
             plt.scatter(rloc[s2][c], temp[s2][c][r], color = colors_t[(r*2)+1], \
               label = name_ea[1]+": "+str(l_star[s2])+ \
@@ -354,6 +355,7 @@ for c in range(len(cut)):
         plt.savefig(plt_dir+"/T_r_sph_"+name_event[s]+"_"+str(cut[c])+ \
           "."+plt_form, format = plt_form)
         plt.clf()
+'''
 #
     # Single event, single cut, single ISRF selection, multiple inclinations
 #
@@ -445,11 +447,11 @@ for i in range(len(inclins)):
             for r in range(len(isrf)):
                 plt.plot( wavs[s1][c][r][i], flam[s1][c][r][i], \
                   label = name_ea[0]+": "+str(l_star[s1])+ \
-                  r" $L_{\odot}$"+leg_ext[r], color=colors_t[0], \
+                  r" L$_{\odot}$"+leg_ext[r], color=colors_t[0], \
                   linestyle = linestyle[r], linewidth = linewidth[0])
                 plt.plot( wavs[s2][c][r][i], flam[s2][c][r][i], \
                   label = name_ea[1]+": "+str(l_star[s2])+ \
-                  r" $L_{\odot}$"+leg_ext[r], color=colors_t[1], \
+                  r" L$_{\odot}$"+leg_ext[r], color=colors_t[1], \
                   linestyle = linestyle[r], linewidth = linewidth[1])
                 if sed_norm:
                     ymax = 50.0 ; ymin = 1.e-12

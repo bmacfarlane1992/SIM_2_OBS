@@ -444,7 +444,7 @@ def run_slice(plt_dir, plt_ext, xloc, yloc, zloc, xwid, nrspecies, \
     # Also define image interpolation, and rotate to preserve correct axes
 
         im_interp = "gaussian"
-        slice_convolve = int(float(npix1) / 75.0)
+        slice_convolve = int(float(npix1) / 105.0)
 
     # Temperature surface plots for slice taken
 
@@ -474,7 +474,9 @@ def run_slice(plt_dir, plt_ext, xloc, yloc, zloc, xwid, nrspecies, \
             temp_slice = np.rot90(temp_slice,1)
             temp_slice = ndimage.gaussian_filter(temp_slice, \
               sigma=(slice_convolve, slice_convolve), order=0)
-            temp_vmax = temp_slice.max() ; temp_vmin = temp_slice.min()+1
+#            temp_vmax = temp_slice.max() ; temp_vmin = temp_slice.min()+1
+#            temp_vmax = 18 ; temp_vmin = 6
+            temp_vmax = 38 ; temp_vmin = 17.5
 
             plt.imshow(temp_slice, interpolation = im_interp , \
               vmin=temp_vmin, vmax=temp_vmax, origin="lower",
@@ -484,6 +486,9 @@ def run_slice(plt_dir, plt_ext, xloc, yloc, zloc, xwid, nrspecies, \
             cbar = plt.colorbar()
             cbar.ax.set_ylabel("Temperature (K)", labelpad = 2.5, \
               fontsize = cs.fontsize)
+            cbar.ax.tick_params(labelsize=cs.fontsize-2)
+            plt.xticks(fontsize=cs.fontsize-2)
+            plt.yticks(fontsize=cs.fontsize-2)
             plt.xlabel(plt_x, labelpad=0.5, fontsize = cs.fontsize)
             plt.ylabel(plt_y, labelpad=0.5, fontsize = cs.fontsize)
             plt.xlim(pix_loc[0].min(), pix_loc[0].max())

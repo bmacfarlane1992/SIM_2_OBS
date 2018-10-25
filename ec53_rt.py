@@ -70,7 +70,7 @@ def gen(arch_dir, dat_dir, plt_dir):
     CAVITY_beta = 1.5       # Float: Cavity profile exponent
     CAVITY_theta = 20.0     # Float: Cavity opening angle (deg.)
     CAVITY_ralpha = 10000.0 # Float: R where opening angle is achieved (AU)
-    CAVITY_rho = 1.e-17     # Float: Paramaters as per G. Baek 2D modelling
+    CAVITY_rho = 1.e-19     # Float: Paramaters as per G. Baek 2D modelling
 
     flat_cavity = False     # Bool.: Is cavity density constant? (If no, taper)
     R_taper = 100.0         # Float: Radius (AU) where taper occurs, if called

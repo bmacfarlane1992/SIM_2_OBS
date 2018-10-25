@@ -338,15 +338,15 @@ for cut in range(len(r_cores)):
             for c in range(len(cavity_theta)):
 
                 if (c == 0):
-                    legend = r"Cavity-only ($\theta = 10^{\circ}$)"
+                    legend = r"Cavity-only ($\theta_{c} = 10^{\circ}$)"
                     marker = "^"
                     fc = "none"
                 elif (c == 1):
-                    legend = r"$\theta = 5^{\circ}$"
+                    legend = r"$\theta_{c} = 5^{\circ}$"
                     marker = ">"
                     fc = "none"
                 elif (c == 2):
-                    legend = r"$\theta = 10^{\circ}$"
+                    legend = r"$\theta_{c} = 10^{\circ}$"
                     marker = "<"
                     fc = "none"
 #
@@ -406,7 +406,7 @@ for cut in range(len(r_cores)):
 #    ax1.set_ylim(0.8*flam_ratio[0][0][0][3][w], 1.2*flam_ratio[3][0][3][0][w])
         plt.text(0.8, 0.1,r'$\lambda$ = '+str(wavs_compare[w])+r'$\mu$m', \
          ha='center', va='center', transform=ax1.transAxes, fontsize = cs.fontsize)
-        if (wavs_compare[w] == 70) or (wavs_compare[w] == 850):
+        if (wavs_compare[w] == 70): # or (wavs_compare[w] == 850):
             plt.legend(loc = "upper left", fontsize=cs.leg_fontsize)
 
         plt.tight_layout()
@@ -426,15 +426,15 @@ for cut in range(len(r_cores)):
         for c in range(len(cavity_theta)):
 
             if (c == 0):
-                legend = r"Cavity-only ($\theta = 10^{\circ}$)"
+                legend = r"Cavity-only ($\theta_{c} = 10^{\circ}$)"
                 marker = "^"
                 fc = "none"
             elif (c == 1):
-                legend = r"$\theta = 5^{\circ}$"
+                legend = r"$\theta_{c} = 5^{\circ}$"
                 marker = ">"
                 fc = "none"
             elif (c == 2):
-                legend = r"$\theta = 10^{\circ}$"
+                legend = r"$\theta_{c} = 10^{\circ}$"
                 marker = "<"
                 fc = "none"
 #
@@ -551,15 +551,15 @@ for s in range(len(lums) + 1):
     for c in range(len(cavity_theta)):
 
         if (c == 0):
-            legend = r"Cavity-only ($\theta = 10^{\circ}$)"
+            legend = r"Cavity-only ($\theta_{c} = 10^{\circ}$)"
             marker = "^"
             fc = "none"
         elif (c == 1):
-            legend = r"$\theta = 5^{\circ}$"
+            legend = r"$\theta_{c} = 5^{\circ}$"
             marker = ">"
             fc = "none"
         elif (c == 2):
-            legend = r"$\theta = 10^{\circ}$"
+            legend = r"$\theta_{c} = 10^{\circ}$"
             marker = "<"
             fc = "none"
 #
@@ -649,15 +649,15 @@ for w in range(len(wavs_compare)):
         for c in range(len(cavity_theta)):
 
             if (c == 0):
-                legend = r"Cavity-only ($\theta = 10^{\circ}$)"
+                legend = r"Cavity-only ($\theta_{c} = 10^{\circ}$)"
                 marker = "^"
                 fc = "none"
             elif (c == 1):
-                legend = r"$\theta = 5^{\circ}$"
+                legend = r"$\theta_{c} = 5^{\circ}$"
                 marker = ">"
                 fc = "none"
             elif (c == 2):
-                legend = r"$\theta = 10^{\circ}$"
+                legend = r"$\theta_{c} = 10^{\circ}$"
                 marker = "<"
                 fc = "none"
 #
@@ -734,8 +734,8 @@ for w in range(len(wavs_compare)):
 
     if (wavs_compare[w] == 70):
         plt.legend(loc = "lower left", fontsize=cs.leg_fontsize)
-    if (wavs_compare[w] == 850):
-        plt.legend(loc = "upper left", fontsize=cs.leg_fontsize)
+#    if (wavs_compare[w] == 850):
+#        plt.legend(loc = "upper left", fontsize=cs.leg_fontsize)
 
     plt.tight_layout()
     plt.savefig(plt_dir+"/"+str(wavs_compare[w])+ \
