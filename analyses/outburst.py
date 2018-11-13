@@ -54,6 +54,7 @@ dist = 140.0            # Float: Distance to source (pc)
 #
 wavs_compare = [70, 250, 350, 450, 850, 1300]   # Int. Arr.: Wavelength values at which
 #                                       flux ratios are compared
+mult_wavs_compare = [350, 450, 850, 1300]
 #
 plt_form = "png"        # Str.: Output plot format ["png","eps"]
 #
@@ -270,7 +271,7 @@ plt.axvline(x=87.00, linestyle="dashed", color="r")
 plt.axvline(x=87.50, linestyle="dashed", color ="b")
 plt.axvline(x=94.10, linestyle="dashed", color="r")
 plt.axvline(x=94.85, linestyle="dashed", color ="b")
-plt.ylabel(r"$\dot{M_{*}}$ (M$_{\odot}$ yr$^{-1}$)", fontsize = cs.fontsize, \
+plt.ylabel(r"$\dot{M}$ (M$_{\odot}$ yr$^{-1}$)", fontsize = cs.fontsize, \
   labelpad=0.5)
 
 fig = plt.figure(1)
@@ -550,7 +551,7 @@ f_ratios.close()
     # Compare the beam-dependent flux for E1 snapshots with ISRF heating
 #
 r_beam = [[] for i in range(2)]
-lam_flam = [ [[] for i in range(len(wavs_compare))] for i in range(2) ]
+lam_flam = [ [[] for i in range(len(mult_wavs_compare))] for i in range(2) ]
 
 for s in range(len(snaps) / 2):
     f_beam = dat_dir+"/"+snaps[s]+"/MULTI/lam_flam_multi_ISRF.dat"
@@ -558,7 +559,7 @@ for s in range(len(snaps) / 2):
     for lines in f_beam:
         lines = lines.strip() ; columns = lines.split()
         r_beam[s].append(float(columns[0]))
-        for w in range(len(wavs_compare)):
+        for w in range(len(mult_wavs_compare)):
             lam_flam[s][w].append(float(columns[1+w]))
     f_beam.close()
 
@@ -569,11 +570,11 @@ phase = ["Quiescent","Outbursting"]
 fig = plt.figure(1)
 ax1 = plt.subplot(111)
 for s in range(len(snaps) / 2):
-    for w in range(len(wavs_compare)):
-        if wavs_compare[w] == 350 or wavs_compare[w] == 1300:
+    for w in range(len(mult_wavs_compare)):
+        if mult_wavs_compare[w] == 350 or mult_wavs_compare[w] == 1300:
             plt.plot(r_beam[s], lam_flam[s][w], \
               color=cols[w], linestyle = lines[s], \
-              label = str(phase[s])+": "+str(int(wavs_compare[w]))+r" $\mu$m" )
+              label = str(phase[s])+": "+str(int(mult_wavs_compare[w]))+r" $\mu$m" )
 plt.xlabel("Radius (AU)", fontsize = cs.fontsize, labelpad=0.5)
 ax1.set_xlim(0, max(r_beam[0]))
 plt.ylabel(r"$\lambda$ F$_{\lambda}$ (erg cm$^{-2}$ s$^{-1}$)", \
